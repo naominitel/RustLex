@@ -98,22 +98,15 @@ impl Automaton {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self) -> ~Automaton {
+    pub fn minimize(&self, acts_count: uint, conditions: &mut [(u32, uint)])
+        -> ~Automaton {
         // groups are stored as an array indexed by a state number
-        // giving a group number. Initially there are 2 groups, for
-        // states that are finals and nonfinals, respectively
+        // giving a group number.
         let mut groups = vec::with_capacity(self.states.len());
-        let nonfinals = 1;
-        let finals = 0;
 
-        // FIXME: don't work for lexical analysers,
-        // must do one subgroup per action instead
+        // create one subgroup per action
         for st in self.states.iter() {
-            if st.action != 0 {
-                groups.push(finals);
-            } else {
-                groups.push(nonfinals);
-            }
+            groups.push(st.action);
         }
 
         // now iterate over the states and split the groups into
@@ -122,7 +115,7 @@ impl Automaton {
         // of subgroups of the form (gr, st) where gr is the number of the
         // subgroup (it may be the same as the original group), and st the
         // number of a representing state
-        let mut subgroups: ~[~[(uint, uint)]] = ~[~[], ~[]];
+        let mut subgroups: ~[~[(uint, uint)]] = vec::from_elem(acts_count, ~[]);
 
         loop {
             // subgroups become groups, reinitialize subgroups
@@ -195,6 +188,11 @@ impl Automaton {
         };
 
         // create the dead state
+        // FIXME: is this really necessary ? it works
+        // but in fine it looks like we end up with two
+        // dead states. one should check if the dead state
+        // of the initial automata is always preserved and
+        // keep it instead of creating a new one
         ret.create_state(0, None);
 
         // build representing states
@@ -225,6 +223,12 @@ impl Automaton {
                 ch += 1
             };
 
+        }
+
+        // update the initial state numbers of each condition
+        for c in conditions.mut_iter() {
+            let (n, st) = *c;
+            *c = (n, groups[st] + 1);
         }
 
         ret

@@ -90,7 +90,9 @@ impl Lexer {
             conds.push((name, dfas.initial));
         }
 
-        Lexer { auto: dfas, actions: acts, conditions: conds }
+        println!("minimizing...");
+        let dfa = dfas.minimize(acts.len(), conds);
+        Lexer { auto: dfa, actions: acts, conditions: conds }
     }
 
     // the generated code model consists of several Rust "items", i.e.

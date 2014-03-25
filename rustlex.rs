@@ -31,8 +31,7 @@ pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {
     );
 
     let def = ~parser::parse(&mut p);
-    //MacResult::dummy_expr(sp)
-    let lex = ~lexer::Lexer::new(def, cx);
+    let lex = lexer::Lexer::new(def, cx);
     lex.genCode(cx, sp)
 }
 
