@@ -27,6 +27,20 @@ pub fn seq(start: u8, end: u8) -> Option<~Regex> {
     }
 }
 
+pub fn string(string: &str) -> Option<~Regex> {
+    let mut it = string.bytes();
+    let mut reg = ~Char(match it.next() {
+        Some(ch) => ch,
+        None => return None
+    });
+
+    for ch in it {
+        reg = ~Cat(reg, ~Char(ch));
+    }
+
+    Some(reg)
+}
+
 impl Regex {
     #[allow(dead_code)]
     // prints the AST for debugging purposes

@@ -67,21 +67,27 @@ fn getCharClass(parser: &mut Parser) -> ~Regex {
 // parenthesized subexpressions are also parsed here since the have
 // the same operator precedence as the constants
 fn getConst(parser: &mut Parser, env: &Env) -> ~Regex {
+    let tok = parser.bump_and_get();
     // here we expect either
     // the start of a character-class, '['
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
-    match parser.bump_and_get() {
+    match tok {
         token::LPAREN => getRegex(parser, &token::RPAREN, env),
         token::LBRACKET => getCharClass(parser),
         token::LIT_CHAR(ch) => ~Char(ch as u8),
+        token::LIT_STR(id) => match regex::string(token::get_name(id.name).get()) {
+            Some(reg) => reg,
+            None => parser.span_fatal(parser.last_span,
+                "bad string constant in regular expression")
+        },
         token::IDENT(id, _) => match env.find_copy(&id.name) {
             Some(value) => ~Var(value),
             None => parser.span_fatal(parser.last_span,
                 format!("unknown identifier: {:s}", 
                     token::get_name(id.name).get()))
         },
-        _ => parser.unexpected()
+        _ => parser.unexpected_last(&tok)
     }
 }
 
