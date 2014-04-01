@@ -1,8 +1,8 @@
 use lexer::Lexer;
-use std::vec_ng::Vec;
 use syntax::ast;
+use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
-use syntax::diagnostic::SpanHandler;
+use syntax::diagnostic;
 use syntax::ext::base::AnyMacro;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::build::AstBuilder;
@@ -15,7 +15,7 @@ struct CodeGenerator {
     // we need this to report
     // errors when the macro is
     // not called correctly
-    handler: @SpanHandler,
+    handler: diagnostic::SpanHandler,
     span: Span,
 
     // items
@@ -42,7 +42,7 @@ impl AnyMacro for CodeGenerator {
 pub fn bufferStruct<'a>(cx: &mut ExtCtxt) -> @ast::Item {
     (quote_item!(cx,
         struct InputBuffer {
-            buf: ~[u8],
+            buf: Vec<u8>,
             current_pos: uint
         }
     )).unwrap()
@@ -136,7 +136,8 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
 
     ~CodeGenerator {
         span: sp,
-        handler: cx.parse_sess.span_diagnostic,
+        // FIXME:
+        handler: diagnostic::mk_span_handler(diagnostic::default_handler(), CodeMap::new()),
         items: items
     }
 }
@@ -182,7 +183,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
             fn next_input(&mut self) -> Option<u8> {
                 if self.inp.current_pos == self.inp.buf.len() {
                     // more input
-                    self.inp.buf = ::std::vec::from_elem(INPUT_BUFSIZE, 0 as u8);
+                    self.inp.buf = Vec::from_elem(INPUT_BUFSIZE, 0 as u8);
                     match self.stream.read(self.inp.buf.mut_slice_from(0)) {
                         Err(_) => return None,
                         Ok(b) => if b < INPUT_BUFSIZE {
@@ -193,7 +194,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
                     self.inp.current_pos = 0;
                 }
 
-                let ret = self.inp.buf[self.inp.current_pos];
+                let &ret = self.inp.buf.get(self.inp.current_pos);
                 self.inp.current_pos += 1;
                 Some(ret)
             }
@@ -238,7 +239,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
             }
 
             fn new(stream: ~::std::io::Reader) -> ~Lexer {
-                let buf = ~InputBuffer { buf: ~[], current_pos: 0 };
+                let buf = ~InputBuffer { buf: vec!(), current_pos: 0 };
                 ~Lexer { stream: stream, inp: buf, condition: INITIAL }
             }
         }

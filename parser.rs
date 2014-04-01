@@ -10,7 +10,6 @@ use regex;
 use regex::Regex;
 use regex::{Cat, Char, Closure, Or, Maybe, Var};
 use std::rc::Rc;
-use std::vec_ng::Vec;
 use syntax::ast::Ident;
 use syntax::ast::Name;
 use syntax::parse::token;

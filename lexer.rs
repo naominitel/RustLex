@@ -1,7 +1,6 @@
 use dfa;
 use nfa;
 use regex::Regex;
-use std::vec;
 use syntax::ast::Name;
 use syntax::ast::Stmt;
 use syntax::codemap::Span;
@@ -15,8 +14,8 @@ use syntax::ext::build::AstBuilder;
 // unfortunately we have to use borrowed pointers since
 // this is what libsyntax gives usn
 pub struct Rule {
-    pattern: ~Regex,
-    action: @Stmt
+    pub pattern: ~Regex,
+    pub action: @Stmt
 }
 
 // a condition is a "state" of the lexical analyser
@@ -24,14 +23,14 @@ pub struct Rule {
 // conditions. Each condition have an automaton for its own
 // set of rules
 pub struct Condition {
-    name: Name,
-    rules: ~[Rule]
+    pub name: Name,
+    pub rules: ~[Rule]
 }
 
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
-    conditions: ~[Condition]
+    pub conditions: ~[Condition]
 }
 
 // The RustLex representation of a lexical analyser
@@ -46,9 +45,9 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
-    priv auto: ~dfa::Automaton,
-    priv actions: ~[@Stmt],
-    priv conditions: ~[(Name, uint)]
+    auto: ~dfa::Automaton,
+    actions: ~[@Stmt],
+    conditions: ~[(Name, uint)]
 }
 
 mod codegen;
@@ -70,7 +69,7 @@ impl Lexer {
         let mut conds = ~[];
 
         for cond in def.conditions.move_iter() {
-            let mut asts = vec::with_capacity(cond.rules.len());
+            let mut asts = Vec::with_capacity(cond.rules.len());
             let name = cond.name;
 
             for Rule { pattern, action } in cond.rules.move_iter() {

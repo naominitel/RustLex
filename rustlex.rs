@@ -1,10 +1,10 @@
-#[feature(macro_registrar)];
-#[feature(macro_rules)];
-#[feature(managed_boxes)];
-#[feature(quote)];
+#![feature(macro_registrar)]
+#![feature(macro_rules)]
+#![feature(managed_boxes)]
+#![feature(quote)]
 
-#[crate_type="dylib"];
-#[crate_id="rustlex#0.1"];
+#![crate_type="dylib"]
+#![crate_id="rustlex#0.1"]
 
 extern crate collections;
 extern crate syntax;
@@ -27,7 +27,7 @@ pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {
     let mut p = ::syntax::parse::new_parser_from_tts(
         cx.parse_sess,
         cx.cfg.clone(),
-        ::std::vec_ng::Vec::from_slice(args)
+        Vec::from_slice(args)
     );
 
     let def = ~parser::parse(&mut p);

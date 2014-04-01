@@ -1,6 +1,6 @@
 use regex::{Or, Cat, Char, Closure, Maybe, Var};
 use regex::Regex;
-use std::vec;
+use std::slice;
 
 /* non-deterministic finite automaton */
 
@@ -12,7 +12,7 @@ use std::vec;
 //   of each of the patterns
 // To avoid systematically using an array, we use this structure:
 enum Etrans {
-    No(),
+    No,
     One(uint),
     Two(uint, uint),
     More(~[uint])
@@ -33,8 +33,8 @@ struct State {
 }
 
 pub struct Automaton {
-    states: ~[State],
-    initial: uint
+    pub states: ~[State],
+    pub initial: uint
 }
 
 // efficient data structure for representing a set of states in an NFA
@@ -49,9 +49,9 @@ pub struct Automaton {
 //   If several final states are inserted, the higher action is taken. It
 //   should correspond to the first action defined in the lexer file.
 pub struct StateSet {
-    priv data: ~[u64],
-    priv states: ~[uint],
-    priv action: uint
+    data: Vec<u64>,
+    states: Vec<uint>,
+    action: uint
 }
 
 impl StateSet {
@@ -62,15 +62,16 @@ impl StateSet {
     #[inline(always)]
     fn contains(&self, state: uint) -> bool {
         let chunk = state >> 6;
-        let idx = state & 0x3F;
-        ((self.data[chunk] >> idx) & 1) != 0
+        let idx = (state & 0x3F) as u64;
+        ((self.data.get(chunk) >> idx) & 1) != 0
     } 
 
     #[inline(always)]
     fn insert(&mut self, state: uint) {
         let chunk = state >> 6;
         let idx = state & 0x3F;
-        self.data[chunk] = self.data[chunk] | (1 << idx);
+        let chunk = self.data.get_mut(chunk);
+        *chunk = *chunk | (1 << idx);
         self.states.push(state);
     }
 
@@ -79,14 +80,14 @@ impl StateSet {
         // (state_count / 64) + 1
         let chunks = (state_count >> 6) + 1;
         StateSet {
-            data: vec::from_elem(chunks, 0u64),
-            states: vec::with_capacity(state_count),
+            data: Vec::from_elem(chunks, 0u64),
+            states: Vec::with_capacity(state_count),
             action: 0
         }
     }
 
     #[inline(always)]
-    pub fn iter<'a>(&'a self) -> vec::Items<'a, uint> {
+    pub fn iter<'a>(&'a self) -> slice::Items<'a, uint> {
         self.states.iter()
     }
 
@@ -112,7 +113,7 @@ impl Eq for StateSet {
         let len = self.data.len();
         let mut i = 0;
         while i < len {
-            if self.data[i] != other.data[i] {
+            if self.data.get(i) != other.data.get(i) {
                 return false;
             }
             i += 1;
@@ -124,7 +125,7 @@ impl Eq for StateSet {
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: ~[(~Regex, uint)]) -> ~Automaton {
+pub fn build_nfa(regexs: Vec<(~Regex, uint)>) -> ~Automaton {
     let mut ret = ~Automaton {
         states: ~[],
         initial: 0
@@ -251,17 +252,17 @@ impl Automaton {
     }
 
     pub fn moves(&self, st: &StateSet) -> ~[(u8, ~[uint])] {
-        let mut indexes: ~[Option<uint>] = vec::from_elem(256, None);
+        let mut indexes: Vec<Option<uint>> = Vec::from_elem(256, None);
         let mut ret: ~[(u8, ~[uint])] = ~[];
 
         for s in st.iter() {
             match self.states[*s].trans {
                 Some((ch, dst)) => {
-                    match indexes[ch] {
-                        Some(i) => ret[i].mut1().push(dst),
-                        None => {
+                    match indexes.get(ch as uint) {
+                        &Some(i) => ret[i].mut1().push(dst),
+                        &None => {
                             ret.push((ch, ~[dst]));
-                            indexes[ch] = Some(ret.len() - 1);
+                            *indexes.get_mut(ch as uint) = Some(ret.len() - 1);
                         }
                     }
                 }
@@ -279,7 +280,7 @@ impl Automaton {
 
     pub fn eclosure(&self, st: &[uint]) -> ~StateSet {
         let mut ret = ~StateSet::new(self.states.len());
-        let mut stack = vec::with_capacity(st.len());
+        let mut stack = Vec::with_capacity(st.len());
 
         for s in st.iter() {
             stack.push(*s);
