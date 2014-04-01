@@ -22,40 +22,47 @@ type Env = HashMap<Name, Rc<Regex>>;
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn getCharClass(parser: &mut Parser) -> ~Regex {
-    let ch = match parser.bump_and_get() {
-        token::LIT_CHAR(ch) => ch as u8,
+    let reg = match parser.bump_and_get() {
+        token::LIT_CHAR(ch) => {
+            let ch = ch as u8;
+
+            match parser.token {
+                token::BINOP(token::MINUS) => {
+                    // a char seq, e.g. 'a' - 'Z'
+                    parser.bump();
+                    let ch2 = match parser.bump_and_get() {
+                        token::LIT_CHAR(ch) => ch as u8,
+                        _ => parser.unexpected()
+                    };
+                    match regex::seq(ch, ch2) {
+                        Some(r) => r,
+                        None => parser.span_fatal(parser.last_span,
+                            "invalid character range")
+                    }
+                }
+
+                _ => ~Char(ch)
+            }
+        }
+
+        token::LIT_STR(id) => {
+            match regex::class(token::get_name(id.name).get()) {
+                Some(reg) => reg,
+                None => parser.span_fatal(parser.last_span,
+                    "bad string constant in character class")
+            }
+        }
+
         _ => parser.unexpected()
     };
 
     match parser.token {
         token::RBRACKET => {
             parser.bump();
-            ~Char(ch)
+            reg
         }
 
-        token::BINOP(token::MINUS) => {
-            // a char seq, e.g. 'a' - 'Z'
-            parser.bump();
-            let ch2 = match parser.bump_and_get() {
-                token::LIT_CHAR(ch) => ch as u8,
-                _ => parser.unexpected()
-            };
-            let reg = match regex::seq(ch, ch2) {
-                Some(r) => r,
-                None => parser.span_fatal(parser.last_span,
-                    "invalid character range")
-            };
-
-            match parser.token {
-                token::RBRACKET => {
-                    parser.bump();
-                    reg
-                }
-                _ => ~Or(reg, getCharClass(parser))
-            }
-        }
-
-        _ => ~Or(~Char(ch), getCharClass(parser))
+        _ => ~Or(reg, getCharClass(parser))
     }
 }
 

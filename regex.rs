@@ -10,6 +10,20 @@ pub enum Regex {
     Var(Rc<Regex>)
 }
 
+pub fn class(string: &str) -> Option<~Regex> {
+    let mut it = string.bytes();
+    let mut reg = ~Char(match it.next() {
+        Some(ch) => ch,
+        None => return None
+    });
+
+    for ch in it {
+        reg = ~Or(reg, ~Char(ch));
+    }
+
+    Some(reg)
+}
+
 pub fn seq(start: u8, end: u8) -> Option<~Regex> {
     if start >= end {
         None
