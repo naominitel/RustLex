@@ -8,7 +8,7 @@ use lexer::LexerDef;
 use lexer::Rule;
 use regex;
 use regex::Regex;
-use regex::{Cat, Char, Closure, Or, Maybe, Var};
+use regex::{Cat, Char, Closure, Or, Maybe, Var, Class};
 use std::rc::Rc;
 use syntax::ast::Ident;
 use syntax::ast::Name;
@@ -22,48 +22,54 @@ type Env = HashMap<Name, Rc<Regex>>;
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn getCharClass(parser: &mut Parser) -> ~Regex {
-    let reg = match parser.bump_and_get() {
-        token::LIT_CHAR(ch) => {
-            let ch = ch as u8;
+    let mut ret = vec!();
+    loop {
+        match parser.bump_and_get() {
+            token::RBRACKET => {
+                break
+            }
 
-            match parser.token {
-                token::BINOP(token::MINUS) => {
-                    // a char seq, e.g. 'a' - 'Z'
-                    parser.bump();
-                    let ch2 = match parser.bump_and_get() {
-                        token::LIT_CHAR(ch) => ch as u8,
-                        _ => parser.unexpected()
-                    };
-                    match regex::seq(ch, ch2) {
-                        Some(r) => r,
-                        None => parser.span_fatal(parser.last_span,
-                            "invalid character range")
+            token::LIT_CHAR(ch) => {
+                let mut ch = ch as u8;
+
+                match parser.token {
+                    token::BINOP(token::MINUS) => {
+                        // a char seq, e.g. 'a' - 'Z'
+                        parser.bump();
+                        let ch2 = match parser.bump_and_get() {
+                            token::LIT_CHAR(ch) => ch as u8,
+                            _ => parser.unexpected()
+                        };
+                        if ch >= ch2 {
+                            parser.span_fatal(parser.last_span,
+                                "invalid character range")
+                        }
+                        while ch <= ch2 {
+                            ret.push(ch);
+                            ch += 1;
+                        }
                     }
+
+                    _ => ret.push(ch)
                 }
-
-                _ => ~Char(ch)
             }
-        }
 
-        token::LIT_STR(id) => {
-            match regex::class(token::get_name(id.name).get()) {
-                Some(reg) => reg,
-                None => parser.span_fatal(parser.last_span,
-                    "bad string constant in character class")
+            token::LIT_STR(id) => {
+                let s = token::get_name(id.name);
+                let s = s.get();
+                if s.len() == 0 {
+                    parser.span_fatal(parser.last_span,
+                        "bad string constant in character class")
+                }
+                for b in s.bytes() {
+                    ret.push(b);
+                }
             }
+
+            _ => parser.unexpected()
         }
-
-        _ => parser.unexpected()
-    };
-
-    match parser.token {
-        token::RBRACKET => {
-            parser.bump();
-            reg
-        }
-
-        _ => ~Or(reg, getCharClass(parser))
     }
+    ~Class(ret)
 }
 
 // parses a "constant" in an regular expression, i.e. either

@@ -4,41 +4,11 @@ use std::rc::Rc;
 pub enum Regex {
     Or(~Regex, ~Regex),
     Cat(~Regex, ~Regex),
-    Closure(~Regex),
     Maybe(~Regex),
+    Closure(~Regex),
     Char(u8),
+    Class(Vec<u8>),
     Var(Rc<Regex>)
-}
-
-pub fn class(string: &str) -> Option<~Regex> {
-    let mut it = string.bytes();
-    let mut reg = ~Char(match it.next() {
-        Some(ch) => ch,
-        None => return None
-    });
-
-    for ch in it {
-        reg = ~Or(reg, ~Char(ch));
-    }
-
-    Some(reg)
-}
-
-pub fn seq(start: u8, end: u8) -> Option<~Regex> {
-    if start >= end {
-        None
-    } else {
-        let mut ret = ~Char(start);
-        let mut c = start;
-
-        while c < end {
-            let op = ~Char(c);
-            ret = ~Or(ret, op);
-            c += 1
-        }
-
-        Some(~Or(ret, ~Char(end)))
-    }
 }
 
 pub fn string(string: &str) -> Option<~Regex> {
@@ -76,6 +46,9 @@ impl Regex {
             &Closure(ref reg) => {
                 println!("{:s} The eclosure of", span);
                 reg.show(format!("  {:s}", span))
+            }
+            &Class(ref reg) => {
+                println!("{:s} The character class {}", span, reg);
             }
             &Var(ref reg) => {
                 (**reg).show(span);

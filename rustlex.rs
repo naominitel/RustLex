@@ -21,6 +21,7 @@ mod lexer;
 mod nfa;
 mod parser;
 mod regex;
+mod util;
 
 // the main rustlex macro
 pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {

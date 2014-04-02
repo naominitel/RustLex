@@ -1,6 +1,7 @@
-use regex::{Or, Cat, Char, Closure, Maybe, Var};
+use regex::{Or, Cat, Char, Closure, Maybe, Var, Class};
 use regex::Regex;
 use std::slice;
+use util::svec;
 
 /* non-deterministic finite automaton */
 
@@ -21,11 +22,18 @@ enum Etrans {
 struct State {
     // the McNaughton-Yamada-Thompson
     // construction algorithm will build
-    // NFAs whose states have a single
-    // transition (or none), and 0, 1 or
+    // NFAs whose states have 0, 1 or
     // 2 e-transitions
-    trans: Option<(u8, uint)>,
     etrans: Etrans,
+
+    // as for the transitions representation,
+    // most of the time, there will be a single
+    // transition or no transition at all but
+    // we use a SmallVec here to optimize the
+    // case in which there are many transitions
+    // to a single state (typically a character
+    // class)
+    trans: (svec::SVec<u8>, uint),
 
     // 0: no action. otherwise, it's
     // a final state with an action
@@ -155,7 +163,7 @@ impl Automaton {
     #[inline(always)]
     fn create_state(&mut self) -> uint {
         self.states.push(State {
-            trans: None,
+            trans: (svec::Zero, 0),
             etrans: No,
             action: 0
         });
@@ -238,10 +246,17 @@ impl Automaton {
                 (new_init, new_final)
             }
 
+            &Class(ref vec) => {
+                let final = self.create_state();
+                let init = self.create_state();
+                self.states[init].trans = (svec::Many(vec.clone()), final);
+                (init, final)
+            }
+
             &Char(ch) => {
                 let final = self.create_state();
                 let init = self.create_state();
-                self.states[init].trans = Some((ch, final));
+                self.states[init].trans = (svec::One(ch), final);
                 (init, final)
             }
 
@@ -257,7 +272,18 @@ impl Automaton {
 
         for s in st.iter() {
             match self.states[*s].trans {
-                Some((ch, dst)) => {
+                (svec::Many(ref v), dst) => {
+                    for &ch in v.iter() {
+                        match indexes.get(ch as uint) {
+                            &Some(i) => ret[i].mut1().push(dst),
+                            &None => {
+                                ret.push((ch, ~[dst]));
+                                *indexes.get_mut(ch as uint) = Some(ret.len() - 1);
+                            }
+                        }
+                    }
+                }
+                (svec::One(ch), dst) => {
                     match indexes.get(ch as uint) {
                         &Some(i) => ret[i].mut1().push(dst),
                         &None => {
@@ -266,7 +292,7 @@ impl Automaton {
                         }
                     }
                 }
-                None => ()
+                (svec::Zero, _) => ()
             }
         }
 
@@ -374,7 +400,7 @@ impl Automaton {
 
         for st in range(0, self.states.len()) {
             match self.states[st].trans {
-                Some((ch, dst)) => {
+                (svec::One(ch), dst) => {
                     writeln!(out, "\t{:u} -> {:u} [label=\"{:c}\"];",
                         st, dst, ch as char);
                 }
