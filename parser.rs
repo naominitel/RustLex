@@ -24,7 +24,8 @@ type Env = HashMap<Name, Rc<Regex>>;
 fn getCharClass(parser: &mut Parser) -> ~Regex {
     let mut ret = vec!();
     loop {
-        match parser.bump_and_get() {
+        let tok = parser.bump_and_get();
+        match tok {
             token::RBRACKET => {
                 break
             }
@@ -66,7 +67,7 @@ fn getCharClass(parser: &mut Parser) -> ~Regex {
                 }
             }
 
-            _ => parser.unexpected()
+            _ => parser.unexpected_last(&tok)
         }
     }
     ~Class(ret)

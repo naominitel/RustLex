@@ -16,7 +16,7 @@ rustc rustlex.rs
 Defining a lexical analyser is done using the `rustlex!` syntax extension. To made this syntax extension available, you first need to tell Rustc to load the RustLex library by adding the following at the top of your crate:
 
 ```
-#[feature(phase)];
+#![feature(phase)]
 #[phase(syntax)]
 extern crate rustlex;
 ```
@@ -30,7 +30,7 @@ The `rustlex!` macro takes as argument the description of the lexical analyser. 
 Here's a simple example that matches integers, floats and identifiers in a file, using the C language syntax for literals and identifiers:
 
 ```rust
-#[feature(phase)];
+#![feature(phase)]
 #[phase(syntax)]
 extern crate rustlex;
 

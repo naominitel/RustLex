@@ -56,11 +56,11 @@ impl Automaton {
 
                 match dst {
                     // in any case, add a transition
-                    Some(i) => self.states.get_mut(next).trans[ch] = i,
+                    Some(i) => self.states.get_mut(next).trans[ch as uint] = i,
                     None => {
                         // create a new DFA state for this set
                         let st = self.create_state(clos.action(), Some(clos));
-                        self.states.get_mut(next).trans[ch] = st;
+                        self.states.get_mut(next).trans[ch as uint] = st;
                         unmarked.push(st);
                     }
                 }
@@ -139,8 +139,8 @@ impl Automaton {
                     // are in the same group of the current partition
                     for i in range(0, 255) {
                         let (s1, s2) = (
-                            self.states.get(st).trans[i],
-                            self.states.get(s).trans[i]
+                            self.states.get(st).trans[i as uint],
+                            self.states.get(s).trans[i as uint]
                         );
                         if groups.get(s1) != groups.get(s2) {
                             continue 'h;
@@ -261,7 +261,7 @@ impl Automaton {
         for st in self.states.iter() {
             for ch in range(0, 256) {
                 let ch = ch as u8;
-                match st.trans[ch] {
+                match st.trans[ch as uint] {
                     0 => (),
                     dst => {
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:c}\"];",

@@ -215,7 +215,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
                         None => return None
                     };
 
-                    let new_st = transition_table[current_st][i];
+                    let new_st = transition_table[current_st][i as uint];
                     let action = accepting[new_st];
 
                     if action != 0 {
