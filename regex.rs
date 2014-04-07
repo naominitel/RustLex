@@ -1,14 +1,22 @@
 use std::rc::Rc;
+use util::BinSetu8;
 
 #[deriving(Clone)]
 pub enum Regex {
+    // binary operators
     Or(~Regex, ~Regex),
     Cat(~Regex, ~Regex),
+
+    // unary operators
     Maybe(~Regex),
     Closure(~Regex),
+
+    // constants
+    Class(~BinSetu8),
+    NotClass(~BinSetu8),
+    Var(Rc<Regex>),
     Char(u8),
-    Class(Vec<u8>),
-    Var(Rc<Regex>)
+    Any
 }
 
 pub fn string(string: &str) -> Option<~Regex> {
@@ -35,28 +43,30 @@ impl Regex {
                 l.show(format!("  {:s}", span));
                 r.show(format!("  {:s}", span));
             }
+
             &Cat(ref l, ref r) => {
                 println!("{:s} Cat of: ", span);
                 l.show(format!("  {:s}", span));
                 r.show(format!("  {:s}", span));
             }
-            &Char(ref c) => {
-                println!("{:s} The char {:c}", span, *c as char);
-            }
-            &Closure(ref reg) => {
-                println!("{:s} The eclosure of", span);
-                reg.show(format!("  {:s}", span))
-            }
-            &Class(ref reg) => {
-                println!("{:s} The character class {}", span, reg);
-            }
-            &Var(ref reg) => {
-                (**reg).show(span);
-            }
+
             &Maybe(ref reg) => {
                 println!("{:s} Optionnally the regex:", span);
                 reg.show(span);
             }
+
+            &Closure(ref reg) => {
+                println!("{:s} The eclosure of", span);
+                reg.show(format!("  {:s}", span))
+            }
+
+            &Var(ref reg) => {
+                (**reg).show(span);
+            }
+
+            &Char(ref c) => println!("{:s} The char {:c}", span, *c as char),
+            &Any => println!("Anything"),
+            _ => ()
         }
     }
 }

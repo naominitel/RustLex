@@ -1,6 +1,5 @@
-use regex::{Or, Cat, Char, Closure, Maybe, Var, Class};
-use regex::Regex;
-use std::slice;
+use regex;
+use util::BinSet;
 use util::svec;
 
 /* non-deterministic finite automaton */
@@ -33,7 +32,7 @@ struct State {
     // case in which there are many transitions
     // to a single state (typically a character
     // class)
-    trans: (svec::SVec<u8>, uint),
+    trans: (svec::SVec, uint),
 
     // 0: no action. otherwise, it's
     // a final state with an action
@@ -45,95 +44,10 @@ pub struct Automaton {
     pub initial: uint
 }
 
-// efficient data structure for representing a set of states in an NFA
-// * data is a binary bit array that uses one bit per state in the NFA
-//   that may be either 0 or 1 (for respectively not included or included in
-//   the set). It allows for fast lookup/insertion. It is represented as an
-//   array of (N/64)+1 64 bit integers
-// * states is a redundant array that stores directly the numbers of the
-//   states included. It allows for fast iteration over the contents of the
-//   states
-// * action is set whenever a final set is inserted into the set.
-//   If several final states are inserted, the higher action is taken. It
-//   should correspond to the first action defined in the lexer file.
-pub struct StateSet {
-    data: Vec<u64>,
-    states: Vec<uint>,
-    action: uint
-}
-
-impl StateSet {
-    // checks or sets the presence of a given state in the set
-    // bits 0-5 of the state num index the state in the chunk
-    // higher bits give the index of the chunk in the data array
-
-    #[inline(always)]
-    fn contains(&self, state: uint) -> bool {
-        let chunk = state >> 6;
-        let idx = (state & 0x3F) as u64;
-        ((self.data.get(chunk) >> idx) & 1) != 0
-    } 
-
-    #[inline(always)]
-    fn insert(&mut self, state: uint) {
-        let chunk = state >> 6;
-        let idx = state & 0x3F;
-        let chunk = self.data.get_mut(chunk);
-        *chunk = *chunk | (1 << idx);
-        self.states.push(state);
-    }
-
-    #[inline(always)]
-    pub fn new(state_count: uint) -> StateSet {
-        // (state_count / 64) + 1
-        let chunks = (state_count >> 6) + 1;
-        StateSet {
-            data: Vec::from_elem(chunks, 0u64),
-            states: Vec::with_capacity(state_count),
-            action: 0
-        }
-    }
-
-    #[inline(always)]
-    pub fn iter<'a>(&'a self) -> slice::Items<'a, uint> {
-        self.states.iter()
-    }
-
-    #[inline(always)]
-    pub fn is_empty(&self) -> bool {
-        self.states.is_empty()
-    }
-
-    #[inline(always)]
-    pub fn len(&self) -> uint {
-        self.states.len()
-    }
-
-    #[inline(always)]
-    pub fn action(&self) -> uint {
-        self.action
-    }
-}
-
-impl Eq for StateSet {
-    fn eq(&self, other: &StateSet) -> bool {
-        // assumes both vectors have the same length
-        let len = self.data.len();
-        let mut i = 0;
-        while i < len {
-            if self.data.get(i) != other.data.get(i) {
-                return false;
-            }
-            i += 1;
-        }
-        true
-    }
-}
-
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: Vec<(~Regex, uint)>) -> ~Automaton {
+pub fn build_nfa(regexs: Vec<(~regex::Regex, uint)>) -> ~Automaton {
     let mut ret = ~Automaton {
         states: ~[],
         initial: 0
@@ -181,9 +95,9 @@ impl Automaton {
     // won't have to be changed
     // the initial state is always the last state created, this way we can reuse
     // it in the concatenation case and avoid adding useless e-transitions
-    fn init_from_regex(&mut self, reg: &Regex) -> (uint, uint) {
+    fn init_from_regex(&mut self, reg: &regex::Regex) -> (uint, uint) {
         match reg {
-            &Or(ref left, ref right) => {
+            &regex::Or(ref left, ref right) => {
                 // build sub-FSMs
                 let (linit, lfinal) = self.init_from_regex(&**left);
                 let (rinit, rfinal) = self.init_from_regex(&**right);
@@ -204,7 +118,7 @@ impl Automaton {
                 (new_init, new_final)
             }
 
-            &Cat(ref fst, ref snd) => {
+            &regex::Cat(ref fst, ref snd) => {
                 let (  _  , sfinal) = self.init_from_regex(&**snd);
 
                 // remove the initial state of the right part
@@ -222,19 +136,7 @@ impl Automaton {
                 (finit, sfinal)
             }
 
-            &Closure(ref reg) => {
-                let (init, final) = self.init_from_regex(&**reg);
-                let new_final = self.create_state();
-                let new_init = self.create_state();
-
-                self.setnonfinal(final);
-                self.states[new_init].etrans = Two(new_final, init);
-                self.states[final].etrans = Two(new_final, init);
-
-                (new_init, new_final)
-            }
-
-            &Maybe(ref reg) => {
+            &regex::Maybe(ref reg) => {
                 let (init, final) = self.init_from_regex(&**reg);
                 let new_final = self.create_state();
                 let new_init = self.create_state();
@@ -246,52 +148,87 @@ impl Automaton {
                 (new_init, new_final)
             }
 
-            &Class(ref vec) => {
+            &regex::Closure(ref reg) => {
+                let (init, final) = self.init_from_regex(&**reg);
+                let new_final = self.create_state();
+                let new_init = self.create_state();
+
+                self.setnonfinal(final);
+                self.states[new_init].etrans = Two(new_final, init);
+                self.states[final].etrans = Two(new_final, init);
+
+                (new_init, new_final)
+            }
+
+            &regex::Class(ref vec) => {
                 let final = self.create_state();
                 let init = self.create_state();
                 self.states[init].trans = (svec::Many(vec.clone()), final);
                 (init, final)
             }
 
-            &Char(ch) => {
+            &regex::NotClass(ref set) => {
+                let final = self.create_state();
+                let init = self.create_state();
+                self.states[init].trans = (svec::ManyBut(set.clone()), final);
+                (init, final)
+            }
+
+            &regex::Var(ref reg) => {
+                self.init_from_regex(&**reg)
+            }
+
+            &regex::Char(ch) => {
                 let final = self.create_state();
                 let init = self.create_state();
                 self.states[init].trans = (svec::One(ch), final);
                 (init, final)
             }
 
-            &Var(ref reg) => {
-                self.init_from_regex(&**reg)
+            &regex::Any => {
+                let final = self.create_state();
+                let init = self.create_state();
+                self.states[init].trans = (svec::Any, final);
+                (init, final)
             }
         }
     }
 
-    pub fn moves(&self, st: &StateSet) -> ~[(u8, ~[uint])] {
-        let mut indexes: Vec<Option<uint>> = Vec::from_elem(256, None);
-        let mut ret: ~[(u8, ~[uint])] = ~[];
+    pub fn moves(&self, st: &BinSet) -> ~[Vec<uint>] {
+        let mut ret = ~[];
+        for _ in range(0, 256u) {
+            ret.push(vec!());
+        }
 
         for s in st.iter() {
             match self.states[*s].trans {
-                (svec::Many(ref v), dst) => {
-                    for &ch in v.iter() {
-                        match indexes.get(ch as uint) {
-                            &Some(i) => ret[i].mut1().push(dst),
-                            &None => {
-                                ret.push((ch, ~[dst]));
-                                *indexes.get_mut(ch as uint) = Some(ret.len() - 1);
-                            }
+                (svec::Many(ref v), dst) =>
+                    for &ch in v.states.iter() {
+                        ret[ch as uint].push(dst)
+                    },
+                (svec::ManyBut(ref set), dst) => {
+                    let data = &set.data;
+                    let mut chk = *data.get(0);
+                    let mut i = 0;
+
+                    for ch in range(0, 256u) {
+                        if (ch & 0x3F) == 0 {
+                            chk = *data.get(i);
+                            i += 1;
                         }
+
+                        if (chk & 1) == 0 {
+                            ret[ch].push(dst);
+                        }
+
+                        chk = chk >> 1;
                     }
                 }
-                (svec::One(ch), dst) => {
-                    match indexes.get(ch as uint) {
-                        &Some(i) => ret[i].mut1().push(dst),
-                        &None => {
-                            ret.push((ch, ~[dst]));
-                            *indexes.get_mut(ch as uint) = Some(ret.len() - 1);
-                        }
-                    }
-                }
+                (svec::Any, dst) =>
+                    for ch in range(0, 256u) {
+                        ret[ch].push(dst);
+                    },
+                (svec::One(ch), dst) => ret[ch as uint].push(dst),
                 (svec::Zero, _) => ()
             }
         }
@@ -300,12 +237,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    pub fn eclosure_(&self, st: uint) -> ~StateSet {
+    pub fn eclosure_(&self, st: uint) -> ~BinSet {
         self.eclosure(&[st])
     }
 
-    pub fn eclosure(&self, st: &[uint]) -> ~StateSet {
-        let mut ret = ~StateSet::new(self.states.len());
+    pub fn eclosure(&self, st: &[uint]) -> ~BinSet {
+        let mut ret = ~BinSet::new(self.states.len());
         let mut stack = Vec::with_capacity(st.len());
 
         for s in st.iter() {

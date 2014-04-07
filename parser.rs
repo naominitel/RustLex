@@ -8,21 +8,21 @@ use lexer::LexerDef;
 use lexer::Rule;
 use regex;
 use regex::Regex;
-use regex::{Cat, Char, Closure, Or, Maybe, Var, Class};
 use std::rc::Rc;
 use syntax::ast::Ident;
 use syntax::ast::Name;
 use syntax::parse::token;
 use syntax::parse::token::keywords;
 use syntax::parse::parser::Parser;
+use util::BinSetu8;
 
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
-fn getCharClass(parser: &mut Parser) -> ~Regex {
-    let mut ret = vec!();
+fn getCharClass(parser: &mut Parser) -> ~BinSetu8 {
+    let mut ret = ~BinSetu8::new(256);
     loop {
         let tok = parser.bump_and_get();
         match tok {
@@ -46,12 +46,12 @@ fn getCharClass(parser: &mut Parser) -> ~Regex {
                                 "invalid character range")
                         }
                         while ch <= ch2 {
-                            ret.push(ch);
+                            ret.insert(ch);
                             ch += 1;
                         }
                     }
 
-                    _ => ret.push(ch)
+                    _ => ret.insert(ch)
                 }
             }
 
@@ -63,14 +63,14 @@ fn getCharClass(parser: &mut Parser) -> ~Regex {
                         "bad string constant in character class")
                 }
                 for b in s.bytes() {
-                    ret.push(b);
+                    ret.insert(b);
                 }
             }
 
             _ => parser.unexpected_last(&tok)
         }
     }
-    ~Class(ret)
+    ret
 }
 
 // parses a "constant" in an regular expression, i.e. either
@@ -86,16 +86,23 @@ fn getConst(parser: &mut Parser, env: &Env) -> ~Regex {
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
+        token::DOT => ~regex::Any,
         token::LPAREN => getRegex(parser, &token::RPAREN, env),
-        token::LBRACKET => getCharClass(parser),
-        token::LIT_CHAR(ch) => ~Char(ch as u8),
+        token::LBRACKET => {
+            if parser.eat(&token::BINOP(token::CARET)) {
+                ~regex::NotClass(getCharClass(parser))
+            } else {
+                ~regex::Class(getCharClass(parser))
+            }
+        }
+        token::LIT_CHAR(ch) => ~regex::Char(ch as u8),
         token::LIT_STR(id) => match regex::string(token::get_name(id.name).get()) {
             Some(reg) => reg,
             None => parser.span_fatal(parser.last_span,
                 "bad string constant in regular expression")
         },
         token::IDENT(id, _) => match env.find_copy(&id.name) {
-            Some(value) => ~Var(value),
+            Some(value) => ~regex::Var(value),
             None => parser.span_fatal(parser.last_span,
                 format!("unknown identifier: {:s}", 
                     token::get_name(id.name).get()))
@@ -108,11 +115,11 @@ fn getConst(parser: &mut Parser, env: &Env) -> ~Regex {
 // the * operator has lower precedence that concatenation
 fn getClosure(parser: &mut Parser, env: &Env) -> ~Regex {
     let reg = getConst(parser, env);
-    if parser.eat(&token::BINOP(token::STAR)) { ~Closure(reg) }
+    if parser.eat(&token::BINOP(token::STAR)) { ~regex::Closure(reg) }
     else if parser.eat(&token::BINOP(token::PLUS)) {
-        ~Cat(reg.clone(), ~Closure(reg))
+        ~regex::Cat(reg.clone(), ~regex::Closure(reg))
     }
-    else if parser.eat(&token::BINOP(token::PERCENT)) { ~Maybe(reg) }
+    else if parser.eat(&token::BINOP(token::PERCENT)) { ~regex::Maybe(reg) }
     else { reg }
 }
 
@@ -127,7 +134,7 @@ fn getConcat(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
         opl
     } else {
         let opr = getConcat(parser, end, env);
-        ~Cat(opl, opr)
+        ~regex::Cat(opl, opr)
     }
 } 
 
@@ -145,7 +152,7 @@ fn getRegex(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
     else {
         parser.expect(&token::BINOP(token::OR));
         let right = getRegex(parser, end, env);
-        ~Or(left, right)
+        ~regex::Or(left, right)
     }
 }
 
@@ -183,6 +190,8 @@ fn getCondition(parser: &mut Parser, env: &Env) -> ~[Rule] {
     while !parser.eat(&token::RBRACE) {
         let reg = getRegex(parser, &token::FAT_ARROW, env);
         let stmt = parser.parse_stmt(Vec::new());
+        // optionnal comma for disambiguation
+        parser.eat(&token::COMMA);
         ret.push(Rule { pattern: reg, action: stmt });
     }
     ret

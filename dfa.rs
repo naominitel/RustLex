@@ -1,4 +1,5 @@
 use nfa;
+use util;
 
 /* deterministic finite automaton */
 
@@ -11,7 +12,7 @@ struct State {
     // for DFA determinization
     // remember the set of NFA states
     // that this state corresponds to
-    states: ~nfa::StateSet,
+    states: ~util::BinSet,
     pub action: uint
 }
 
@@ -36,10 +37,12 @@ impl Automaton {
             let next = unmarked.pop().unwrap();
             let moves = nfa.moves(&*self.states.get(next).states);
 
-            'g: for (ch, dst) in moves.move_iter() {
+            let mut ch = 0u8;
+            'g: for dst in moves.move_iter() {
                 let clos = nfa.eclosure(dst.as_slice());
 
                 if clos.is_empty() {
+                    ch += 1;
                     continue;
                 }
 
@@ -64,6 +67,8 @@ impl Automaton {
                         unmarked.push(st);
                     }
                 }
+
+                ch += 1;
             }
         }
 
@@ -82,12 +87,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    fn create_state(&mut self, act: uint, states: Option<~nfa::StateSet>) -> uint {
+    fn create_state(&mut self, act: uint, states: Option<~util::BinSet>) -> uint {
         self.states.push(State {
             trans: [0, .. 256],
             states: match states {
                 Some(s) => s,
-                None => ~nfa::StateSet::new(0)
+                None => ~util::BinSet::new(0u)
             },
             action: act
         });
