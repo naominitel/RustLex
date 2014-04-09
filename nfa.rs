@@ -338,8 +338,33 @@ impl Automaton {
         for st in range(0, self.states.len()) {
             match self.states[st].trans {
                 (svec::One(ch), dst) => {
-                    writeln!(out, "\t{:u} -> {:u} [label=\"{:c}\"];",
-                        st, dst, ch as char);
+                    let mut esc = ~"";
+                    (ch as char).escape_default(|c| { esc.push_char(c); });
+                    writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                        st, dst, esc);
+                }
+
+                (svec::Many(ref vec), dst) => {
+                    for &ch in vec.states.iter() {
+                        let mut esc = ~"";
+                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                            st, dst, esc);
+                    }
+                }
+
+                (svec::ManyBut(ref vec), dst) => {
+                    for &ch in vec.states.iter() {
+                        let mut esc = ~"";
+                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        writeln!(out, "\t{:u} -> {:u} [label=\"!{:s}\"];",
+                            st, dst, esc);
+                    }
+                }
+
+                (svec::Any, dst) => {
+                    writeln!(out, "\t{:u} -> {:u} [label=\".\"];",
+                        st, dst);
                 }
 
                 _ => ()

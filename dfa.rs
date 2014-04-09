@@ -127,7 +127,6 @@ impl Automaton {
         // subgroup (it may be the same as the original group), and st the
         // number of a representing state
         let mut subgroups: Vec<Vec<(uint, uint)>> = Vec::from_elem(acts_count, vec!());
-
         loop {
             // subgroups become groups, reinitialize subgroups
             for i in subgroups.mut_iter() {
@@ -282,8 +281,10 @@ impl Automaton {
                 match st.trans[ch as uint] {
                     0 => (),
                     dst => {
-                        writeln!(out, "\t{:u} -> {:u} [label=\"{:c}\"];",
-                                i, dst, ch as char);
+                        let mut esc = ~"";
+                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                            i, dst, esc);
                     }
                 }
             }
