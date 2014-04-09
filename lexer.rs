@@ -90,8 +90,14 @@ impl Lexer {
         }
 
         println!("minimizing...");
-        let dfa = dfas.minimize(acts.len(), conds);
-        Lexer { auto: dfa, actions: acts, conditions: conds }
+        match dfas.minimize(acts.len(), conds) {
+            Ok(dfa) => Lexer { auto: dfa, actions: acts, conditions: conds },
+            Err(dfa::UnreachablePattern(pat)) => {
+                cx.span_note(acts[pat].span, "make sure it is not included \
+                    in another pattern. Latter patterns have precedence");
+                cx.span_fatal(acts[pat].span, "unreachable pattern")
+            }
+        }
     }
 
     // the generated code model consists of several Rust "items", i.e.

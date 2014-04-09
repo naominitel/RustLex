@@ -1,4 +1,5 @@
 use nfa;
+use std::result;
 use util;
 
 /* deterministic finite automaton */
@@ -19,6 +20,12 @@ struct State {
 pub struct Automaton {
     pub states: Vec<State>,
     pub initial: uint
+}
+
+// used by the determinization algorithm
+
+pub enum MinimizationError {
+    UnreachablePattern(uint)
 }
 
 impl Automaton {
@@ -103,7 +110,7 @@ impl Automaton {
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
     pub fn minimize(&self, acts_count: uint, conditions: &mut [(u32, uint)])
-        -> ~Automaton {
+        -> result::Result<~Automaton, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
         let mut groups = Vec::with_capacity(self.states.len());
@@ -208,7 +215,12 @@ impl Automaton {
         //   allow us to find representing states for each groups
         // the number of a state of the new DFA will be the number of the
         // group of which it is a representing state
+        let mut action = 0;
         for gr in subgroups.iter() {
+            if gr.is_empty() {
+                println!("action {:u} unreachable", action);
+                return Err(UnreachablePattern(action));
+            }
             let &(_, st) = gr.get(0);
 
             let st = &self.states.get(st);
@@ -227,6 +239,7 @@ impl Automaton {
                 ch += 1
             };
 
+            action += 1;
         }
 
         // update the initial state numbers of each condition
@@ -235,7 +248,7 @@ impl Automaton {
             *c = (n, groups.get(st) + 1);
         }
 
-        ret
+        Ok(ret)
     }
 
     #[allow(dead_code)]

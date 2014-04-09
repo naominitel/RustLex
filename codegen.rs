@@ -29,7 +29,8 @@ impl AnyMacro for CodeGenerator {
     }
 
     fn make_stmt(&self) -> @ast::Stmt {
-        fail!("invoking rustlex on statement context is not implemented");
+        self.handler.span_unimpl(self.span,
+            "invoking rustlex on statement context is not implemented");
     }
 
     fn make_expr(&self) -> @ast::Expr {
