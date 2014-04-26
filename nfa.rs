@@ -338,7 +338,7 @@ impl Automaton {
         for st in range(0, self.states.len()) {
             match self.states[st].trans {
                 (svec::One(ch), dst) => {
-                    let mut esc = ~"";
+                    let mut esc = StrBuf::new();
                     (ch as char).escape_default(|c| { esc.push_char(c); });
                     writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                         st, dst, esc);
@@ -346,7 +346,7 @@ impl Automaton {
 
                 (svec::Many(ref vec), dst) => {
                     for &ch in vec.states.iter() {
-                        let mut esc = ~"";
+                        let mut esc = StrBuf::new();
                         (ch as char).escape_default(|c| { esc.push_char(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                             st, dst, esc);
@@ -355,7 +355,7 @@ impl Automaton {
 
                 (svec::ManyBut(ref vec), dst) => {
                     for &ch in vec.states.iter() {
-                        let mut esc = ~"";
+                        let mut esc = StrBuf::new();
                         (ch as char).escape_default(|c| { esc.push_char(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"!{:s}\"];",
                             st, dst, esc);

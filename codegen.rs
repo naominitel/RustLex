@@ -40,24 +40,75 @@ impl AnyMacro for CodeGenerator {
 }
 
 #[inline(always)]
-pub fn bufferStruct<'a>(cx: &mut ExtCtxt) -> @ast::Item {
-    (quote_item!(cx,
-        struct InputBuffer {
-            buf: Vec<u8>,
-            current_pos: uint
-        }
-    )).unwrap()
-}
+pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
+    vec!(
+        (quote_item!(&*cx,
+            static RUSTLEX_BUFSIZE: uint = 4096;
+        )).unwrap(),
 
-#[inline(always)]
-pub fn lexerStruct<'a>(cx: &mut ExtCtxt) -> @ast::Item {
-    (quote_item!(cx,
-        struct Lexer {
-            stream: ~std::io::Reader,
-            inp: ~InputBuffer,
-            condition: uint
-        }
-    )).unwrap()
+        (quote_item!(&*cx,
+            struct RustLexBuffer {
+                d: Vec<u8>,
+                valid: bool
+            }
+        )).unwrap(),
+
+        (quote_item!(&*cx,
+            impl<'a> RustLexBuffer {
+                #[inline(always)]
+                fn len(&self) -> uint {
+                    self.d.len()
+                }
+
+                #[inline(always)]
+                fn get(&'a self, idx: uint) -> &'a u8 {
+                    self.d.get(idx)
+                }
+
+                #[inline(always)]
+                fn as_slice(&'a self) -> &'a [u8] {
+                    self.d.as_slice()
+                }
+
+                #[inline(always)]
+                fn slice(&'a self, from: uint, to: uint) -> &'a [u8] {
+                    self.d.slice(from, to)
+                }
+
+                #[inline(always)]
+                fn slice_from(&'a self, from: uint) -> &'a [u8] {
+                    self.d.slice_from(from)
+                }
+            }
+        )).unwrap(),
+
+        (quote_item!(&*cx,
+            struct RustLexPos {
+                buf: uint,
+                off: uint
+            }
+        )).unwrap(),
+
+        (quote_item!(&*cx,
+            impl Eq for RustLexPos {
+                fn eq(&self, other: &RustLexPos) -> bool {
+                    self.buf == other.buf &&
+                    self.off == other.off
+                }
+            }
+        )).unwrap(),
+
+        (quote_item!(cx,
+            struct Lexer {
+                stream: ~std::io::Reader,
+                inp: Vec<RustLexBuffer>,
+                condition: uint,
+                advance: RustLexPos,
+                pos: RustLexPos,
+                tok: RustLexPos
+            }
+        )).unwrap()
+    )
 }
 
 pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
@@ -120,12 +171,9 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
         ).unwrap());
     }
 
-    items.push(quote_item!(&*cx, static INPUT_BUFSIZE: uint = 256;).unwrap());
-
     // structs
 
-    items.push(bufferStruct(cx));
-    items.push(lexerStruct(cx));
+    items.push_all(structs(cx).as_slice());
 
     // functions of the Lexer and InputBuffer structs
     // TODO:
@@ -151,8 +199,34 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
     let yystr = quote_stmt!(&*cx,
         // FIXME: unused variable in generated code
         // a syntax reg as var => like OCamllex would be better
-        let yystr = ::std::str::from_utf8(self.inp.buf.slice(
-            oldpos, self.inp.current_pos)).unwrap();
+        let _yystr = {
+            let RustLexPos { buf, off } = self.tok;
+            let RustLexPos { buf: nbuf, off: noff } = self.pos;
+            if buf == nbuf {
+                let slice = self.inp.get(buf).slice(off, noff);
+                let mut buf = StrBuf::with_capacity(slice.len());
+                unsafe { buf.push_bytes(slice); }
+                buf
+            } else {
+                // create a strbuf with the right capacity
+                let mut capacity = self.inp.get(buf).len() - off;
+                for i in range(buf + 1, nbuf) {
+                    capacity += self.inp.get(i).len();
+                }
+                capacity += noff;
+                let mut yystr = StrBuf::with_capacity(capacity);
+
+                // unsafely pushes all bytes onto the buf
+                let iter = self.inp.slice(buf + 1, nbuf).iter();
+                let iter = iter.flat_map(|v| v.as_slice().iter());
+                let iter = iter.chain(self.inp.get(nbuf).slice(0, noff).iter());
+                let mut iter = self.inp.get(buf).slice_from(off).iter().chain(iter);
+                for &i in iter {
+                    unsafe { yystr.push_byte(i) }
+                }
+                yystr
+            }
+        };
     );
 
     for act in acts.iter().skip(1) {
@@ -167,9 +241,10 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
 
     let def_act = quote_expr!(&*cx, {
         // default action is printing on stdout
-        self.go_back(oldpos + 1);
-        let s = self.inp.buf.slice(oldpos, self.inp.current_pos);
-        print!("{:s}", ::std::str::from_utf8(s).unwrap());
+        self.pos = self.tok;
+        self.pos.off += 1;
+        let b: &u8 = self.inp.get(self.tok.buf).get(self.tok.off);
+        print!("{:c}", *b as char);
     });
 
     let def_pat = cx.pat_wild(sp);
@@ -180,47 +255,80 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
 pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
     // the actual simulation code
     (quote_item!(cx,
-        impl Lexer {
-            fn next_input(&mut self) -> Option<u8> {
-                if self.inp.current_pos == self.inp.buf.len() {
-                    // more input
-                    self.inp.buf = Vec::from_elem(INPUT_BUFSIZE, 0 as u8);
-                    match self.stream.read(self.inp.buf.mut_slice_from(0)) {
-                        Err(_) => return None,
-                        Ok(b) => if b < INPUT_BUFSIZE {
-                            self.inp.buf.truncate(b); 
-                        }
+    impl Lexer {
+        fn fill_buf(&mut self) {
+            let &RustLexBuffer {
+                ref mut d,
+                ref mut valid
+            } = self.inp.get_mut(self.pos.buf);
+            *valid = true;
+            self.stream.push_exact(d, RUSTLEX_BUFSIZE);
+            self.pos.off = 0;
+        }
+
+        fn getchar(&mut self) -> Option<u8> {
+            if self.pos.off == RUSTLEX_BUFSIZE {
+                let npos = self.pos.buf + 1;
+                if self.inp.len() > npos && self.inp.get(npos).valid {
+                    self.pos.buf = npos;
+                    self.pos.off = 0;
+                } else {
+                    // we reached the end of the current buffer. We must get
+                    // more input. First, see if we can get rid of buffers
+                    // that won't be used anymore. Shifting the array can be
+                    // done cheaply because most analysers won't need more
+                    // than a couple of buffers
+                    let unused_buffers_count = self.tok.buf;
+                    for i in range(0, unused_buffers_count) {
+                        self.inp.get_mut(i).valid = false;
+                        self.inp.get_mut(i).d.truncate(0);
+                        self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
+                    }
+                    self.tok.buf -= unused_buffers_count;
+                    self.pos.buf -= unused_buffers_count - 1;
+                    self.advance.buf -= unused_buffers_count;
+
+                    while self.pos.buf >= self.inp.len() {
+                        // we couldn't free some space, we have to create a
+                        // new buffer and add it to our vector
+                        self.inp.push(RustLexBuffer {
+                            d: Vec::with_capacity(RUSTLEX_BUFSIZE),
+                            valid: false
+                        });
                     }
 
-                    self.inp.current_pos = 0;
+                    self.fill_buf();
                 }
-
-                let &ret = self.inp.buf.get(self.inp.current_pos);
-                self.inp.current_pos += 1;
-                Some(ret)
+            } else if self.pos.off >= self.inp.get(self.pos.buf).len() {
+                // the current buffer wasn't full, this mean this is
+                // actually EOF
+                return None
             }
 
-            fn go_back(&mut self, pos: uint) {
-                self.inp.current_pos = pos;
-            }
+            let &ch = self.inp.get(self.pos.buf).get(self.pos.off);
+            self.pos.off += 1;
+            Some(ch)
+        }
 
-            fn next<'a>(&'a mut self) -> Option<Token> {
-                let oldpos = self.inp.current_pos;
-                let mut advance = self.inp.current_pos;
+        fn next<'a>(&'a mut self) -> Option<Token> {
+            loop {
+                self.tok = self.pos;
+                self.advance = self.pos;
                 let mut last_matching_action = 0;
                 let mut current_st = self.condition;
 
                 while current_st != 0 {
-                    let i = match self.next_input() {
+                    let i = match self.getchar() {
+                        None if self.tok == self.pos => return None,
                         Some(i) => i,
-                        None => return None
+                        _ => break
                     };
 
                     let new_st = transition_table[current_st][i as uint];
                     let action = accepting[new_st];
 
                     if action != 0 {
-                        advance = self.inp.current_pos;
+                        self.advance = self.pos;
 
                         // final state
                         last_matching_action = action;
@@ -230,19 +338,38 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
                 }
 
                 // go back to last matching state in the input
-                self.go_back(advance);
+                self.pos = self.advance;
 
                 // execute action corresponding to found state
                 $actions_match
 
                 // if the user code did not return, continue
-                self.next()
-            }
-
-            fn new(stream: ~::std::io::Reader) -> ~Lexer {
-                let buf = ~InputBuffer { buf: vec!(), current_pos: 0 };
-                ~Lexer { stream: stream, inp: buf, condition: INITIAL }
             }
         }
-    )).unwrap()
+
+        fn new(stream: ~::std::io::Reader) -> ~Lexer {
+            let mut lex = ~Lexer {
+                stream: stream,
+                inp: vec!(RustLexBuffer{
+                    d: Vec::new(),
+                    valid: false
+                }),
+                condition: INITIAL,
+                advance: RustLexPos {
+                    off: 0,
+                    buf: 0
+                },
+                pos: RustLexPos {
+                    off: 0,
+                    buf: 0
+                },
+                tok: RustLexPos {
+                    off: 0,
+                    buf: 0
+                }
+            };
+            lex.fill_buf();
+            lex
+        }
+    })).unwrap()
 }
