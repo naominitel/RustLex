@@ -9,8 +9,11 @@ use lexer::Rule;
 use regex;
 use regex::Regex;
 use std::rc::Rc;
+use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
+use syntax::ast::P;
+use syntax::ast::Ty;
 use syntax::parse::token;
 use syntax::parse::token::keywords;
 use syntax::parse::parser::Parser;
@@ -18,6 +21,29 @@ use util::BinSetu8;
 
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
+
+fn getProperties(parser: &mut Parser) -> ~[(Name, P<Ty>, @Expr)] {
+    let mut ret = ~[];
+    let prop = token::intern("property");
+    loop {
+        match parser.token {
+            token::IDENT(id, _) if id.name == prop => {
+                parser.bump();
+                let name = parser.parse_ident();
+                parser.expect(&token::COLON);
+                let ty = parser.parse_ty(true);
+                parser.expect(&token::EQ);
+                let expr = parser.parse_expr();
+                parser.expect(&token::SEMI);
+                ret.push((name.name, ty, expr));
+            }
+
+            _ => break
+        }
+    }
+
+    ret
+}
 
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
@@ -275,7 +301,8 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
 // - first gets an environment of the regular expression definitions
 // - then parses the definitions of the rules and the conditions
 pub fn parse(parser: &mut Parser) -> LexerDef {
+    let props = getProperties(parser);
     let defs = getDefinitions(parser);
     let conditions = getConditions(parser, defs);
-    LexerDef { conditions: conditions }
+    LexerDef { properties: props, conditions: conditions }
 }

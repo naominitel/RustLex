@@ -1,8 +1,11 @@
 use dfa;
 use nfa;
 use regex::Regex;
+use syntax::ast::Expr;
 use syntax::ast::Name;
+use syntax::ast::P;
 use syntax::ast::Stmt;
+use syntax::ast::Ty;
 use syntax::codemap::Span;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
@@ -27,9 +30,11 @@ pub struct Condition {
     pub rules: ~[Rule]
 }
 
+pub type Prop = (Name, P<Ty>, @Expr);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
+    pub properties: ~[Prop],
     pub conditions: ~[Condition]
 }
 
@@ -47,7 +52,8 @@ pub struct LexerDef {
 pub struct Lexer {
     auto: ~dfa::Automaton,
     actions: ~[@Stmt],
-    conditions: ~[(Name, uint)]
+    conditions: ~[(Name, uint)],
+    properties: ~[Prop]
 }
 
 mod codegen;
@@ -68,7 +74,8 @@ impl Lexer {
         let mut dfas = dfa::Automaton::new();
         let mut conds = ~[];
 
-        for cond in def.conditions.move_iter() {
+        let ~LexerDef { properties, conditions } = def;
+        for cond in conditions.move_iter() {
             let mut asts = Vec::with_capacity(cond.rules.len());
             let name = cond.name;
 
@@ -91,7 +98,12 @@ impl Lexer {
 
         println!("minimizing...");
         match dfas.minimize(acts.len(), conds) {
-            Ok(dfa) => Lexer { auto: dfa, actions: acts, conditions: conds },
+            Ok(dfa) => Lexer {
+                auto: dfa,
+                actions: acts,
+                conditions: conds,
+                properties: properties
+            },
             Err(dfa::UnreachablePattern(pat)) => {
                 cx.span_note(acts[pat].span, "make sure it is not included \
                     in another pattern. Latter patterns have precedence");

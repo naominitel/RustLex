@@ -1,11 +1,15 @@
 use lexer::Lexer;
+use lexer::Prop;
 use syntax::ast;
+use syntax::ast::P;
+use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
 use syntax::diagnostic;
 use syntax::ext::base::AnyMacro;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::build::AstBuilder;
+use syntax::parse::token;
 use syntax::util::small_vector::SmallVector;
     
 // struct returned by the code generator
@@ -37,6 +41,47 @@ impl AnyMacro for CodeGenerator {
         self.handler.span_fatal(self.span,
             "rustlex! invoked on expression context");
     }
+}
+
+#[inline(always)]
+pub fn lexerField(sp: Span, name: ast::Ident, ty: P<ast::Ty>) -> ast::StructField {
+    codemap::Spanned {
+        span: sp,
+        node: ast::StructField_ {
+            kind: ast::NamedField(name, ast::Public),
+            id: -1 as u32,
+            ty: ty,
+            attrs: vec!()
+        }
+    }
+}
+
+
+#[inline(always)]
+pub fn lexerStruct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> @ast::Item {
+    let mut fields = Vec::with_capacity(props.len() + 1);
+
+    for &(name, ty, _) in props.iter() {
+        fields.push(lexerField(sp, ast::Ident::new(name), ty));
+    }
+
+    fields.push(codemap::Spanned {
+        span: sp,
+        node: ast::StructField_ {
+            kind: ast::NamedField(
+                ast::Ident::new(token::intern("_internal_lexer")),
+                ast::Public
+            ),
+            id: -1 as u32,
+            ty: cx.ty_ident(sp, ast::Ident::new(token::intern("RustLexLexer"))),
+            attrs: vec!()
+        }
+    });
+
+    cx.item_struct(sp,
+        ast::Ident::new(token::intern("Lexer")),
+        ast::StructDef { ctor_id: None, fields: fields }
+    )
 }
 
 #[inline(always)]
@@ -99,7 +144,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
         )).unwrap(),
 
         (quote_item!(cx,
-            struct Lexer {
+            struct RustLexLexer {
                 stream: ~std::io::Reader,
                 inp: Vec<RustLexBuffer>,
                 condition: uint,
@@ -174,13 +219,14 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
     // structs
 
     items.push_all(structs(cx).as_slice());
+    items.push(lexerStruct(cx, sp, lex.properties.as_slice()));
 
     // functions of the Lexer and InputBuffer structs
     // TODO:
 
     let acts_match = actionsMatch(lex.actions, cx, sp);
-    let lex_impl = lexerImpl(cx, acts_match);
-    items.push(lex_impl);
+    items.push(userLexerimpl(cx, sp, lex.properties.as_slice(), acts_match));
+    items.push(lexerImpl(cx));
     println!("done!");
 
     ~CodeGenerator {
@@ -200,27 +246,29 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
         // FIXME: unused variable in generated code
         // a syntax reg as var => like OCamllex would be better
         let _yystr = {
-            let RustLexPos { buf, off } = self.tok;
-            let RustLexPos { buf: nbuf, off: noff } = self.pos;
+            let RustLexPos { buf, off } = self._internal_lexer.tok;
+            let RustLexPos { buf: nbuf, off: noff } = self._internal_lexer.pos;
             if buf == nbuf {
-                let slice = self.inp.get(buf).slice(off, noff);
+                let slice = self._internal_lexer.inp.get(buf).slice(off, noff);
                 let mut buf = StrBuf::with_capacity(slice.len());
                 unsafe { buf.push_bytes(slice); }
                 buf
             } else {
                 // create a strbuf with the right capacity
-                let mut capacity = self.inp.get(buf).len() - off;
+                let mut capacity = self._internal_lexer.inp.get(buf).len() - off;
                 for i in range(buf + 1, nbuf) {
-                    capacity += self.inp.get(i).len();
+                    capacity += self._internal_lexer.inp.get(i).len();
                 }
                 capacity += noff;
                 let mut yystr = StrBuf::with_capacity(capacity);
 
                 // unsafely pushes all bytes onto the buf
-                let iter = self.inp.slice(buf + 1, nbuf).iter();
+                let iter = self._internal_lexer.inp.slice(buf + 1, nbuf).iter();
                 let iter = iter.flat_map(|v| v.as_slice().iter());
-                let iter = iter.chain(self.inp.get(nbuf).slice(0, noff).iter());
-                let mut iter = self.inp.get(buf).slice_from(off).iter().chain(iter);
+                let iter = iter.chain(self._internal_lexer.inp.get(nbuf)
+                    .slice(0, noff).iter());
+                let mut iter = self._internal_lexer.inp.get(buf).slice_from(off)
+                    .iter().chain(iter);
                 for &i in iter {
                     unsafe { yystr.push_byte(i) }
                 }
@@ -241,9 +289,10 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
 
     let def_act = quote_expr!(&*cx, {
         // default action is printing on stdout
-        self.pos = self.tok;
-        self.pos.off += 1;
-        let b: &u8 = self.inp.get(self.tok.buf).get(self.tok.off);
+        self._internal_lexer.pos = self._internal_lexer.tok;
+        self._internal_lexer.pos.off += 1;
+        let b: &u8 = self._internal_lexer.inp.get(
+            self._internal_lexer.tok.buf).get(self._internal_lexer.tok.off);
         print!("{:c}", *b as char);
     });
 
@@ -252,10 +301,76 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
     cx.expr_match(sp, match_expr, arms)
 }
 
-pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
-    // the actual simulation code
+pub fn userLexerimpl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
+    actions_match: @ast::Expr) -> @ast::Item {
+    let mut fields = Vec::with_capacity(props.len() + 1);
+
+    for &(name, _, expr) in props.iter() {
+        fields.push(cx.field_imm(sp, ast::Ident::new(name), expr));
+    }
+
+    fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_internal_lexer")),
+        quote_expr!(&*cx, RustLexLexer::new(reader))));
+
+    let init_expr = cx.expr_struct_ident(
+        sp, ast::Ident::new(token::intern("Lexer")), fields
+    );
+
     (quote_item!(cx,
     impl Lexer {
+        fn new(reader: ~::std::io::Reader) -> ~Lexer {
+            ~$init_expr
+        }
+
+        #[inline(always)]
+        fn begin(&mut self, condition: uint) {
+            self._internal_lexer.condition = condition;
+        }
+
+        fn next<'a>(&'a mut self) -> Option<Token> {
+            loop {
+                self._internal_lexer.tok = self._internal_lexer.pos;
+                self._internal_lexer.advance = self._internal_lexer.pos;
+                let mut last_matching_action = 0;
+                let mut current_st = self._internal_lexer.condition;
+
+                while current_st != 0 {
+                    let i = match self._internal_lexer.getchar() {
+                        None if self._internal_lexer.tok ==
+                                self._internal_lexer.pos => return None,
+                        Some(i) => i,
+                        _ => break
+                    };
+
+                    let new_st = transition_table[current_st][i as uint];
+                    let action = accepting[new_st];
+
+                    if action != 0 {
+                        self._internal_lexer.advance = self._internal_lexer.pos;
+
+                        // final state
+                        last_matching_action = action;
+                    }
+
+                    current_st = new_st;
+                }
+
+                // go back to last matching state in the input
+                self._internal_lexer.pos = self._internal_lexer.advance;
+
+                // execute action corresponding to found state
+                $actions_match
+
+                // if the user code did not return, continue
+            }
+        }
+    })).unwrap()
+}
+
+pub fn lexerImpl(cx: &mut ExtCtxt) -> @ast::Item {
+    // the actual simulation code
+    (quote_item!(cx,
+    impl RustLexLexer {
         fn fill_buf(&mut self) {
             let &RustLexBuffer {
                 ref mut d,
@@ -310,45 +425,8 @@ pub fn lexerImpl(cx: &mut ExtCtxt, actions_match: @ast::Expr) -> @ast::Item {
             Some(ch)
         }
 
-        fn next<'a>(&'a mut self) -> Option<Token> {
-            loop {
-                self.tok = self.pos;
-                self.advance = self.pos;
-                let mut last_matching_action = 0;
-                let mut current_st = self.condition;
-
-                while current_st != 0 {
-                    let i = match self.getchar() {
-                        None if self.tok == self.pos => return None,
-                        Some(i) => i,
-                        _ => break
-                    };
-
-                    let new_st = transition_table[current_st][i as uint];
-                    let action = accepting[new_st];
-
-                    if action != 0 {
-                        self.advance = self.pos;
-
-                        // final state
-                        last_matching_action = action;
-                    }
-
-                    current_st = new_st;
-                }
-
-                // go back to last matching state in the input
-                self.pos = self.advance;
-
-                // execute action corresponding to found state
-                $actions_match
-
-                // if the user code did not return, continue
-            }
-        }
-
-        fn new(stream: ~::std::io::Reader) -> ~Lexer {
-            let mut lex = ~Lexer {
+        fn new(stream: ~::std::io::Reader) -> RustLexLexer {
+            let mut lex = RustLexLexer {
                 stream: stream,
                 inp: vec!(RustLexBuffer{
                     d: Vec::new(),
