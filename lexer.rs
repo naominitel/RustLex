@@ -17,7 +17,7 @@ use syntax::ext::build::AstBuilder;
 // unfortunately we have to use borrowed pointers since
 // this is what libsyntax gives usn
 pub struct Rule {
-    pub pattern: ~Regex,
+    pub pattern: Box<Regex>,
     pub action: @Stmt
 }
 
@@ -50,7 +50,7 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
-    auto: ~dfa::Automaton,
+    auto: Box<dfa::Automaton>,
     actions: ~[@Stmt],
     conditions: ~[(Name, uint)],
     properties: ~[Prop]
@@ -61,7 +61,7 @@ mod codegen;
 impl Lexer {
     // Main function of RustLex, compiles a set of rules into a
     // lexical analyser
-    pub fn new(def: ~LexerDef, cx: &ExtCtxt) -> Lexer {
+    pub fn new(def: Box<LexerDef>, cx: &ExtCtxt) -> Lexer {
         // all the actions in the lexical analyser
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
@@ -74,7 +74,7 @@ impl Lexer {
         let mut dfas = dfa::Automaton::new();
         let mut conds = ~[];
 
-        let ~LexerDef { properties, conditions } = def;
+        let box LexerDef { properties, conditions } = def;
         for cond in conditions.move_iter() {
             let mut asts = Vec::with_capacity(cond.rules.len());
             let name = cond.name;

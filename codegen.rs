@@ -145,7 +145,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
 
         (quote_item!(cx,
             struct RustLexLexer {
-                stream: ~std::io::Reader,
+                stream: Box<std::io::Reader>,
                 inp: Vec<RustLexBuffer>,
                 condition: uint,
                 advance: RustLexPos,
@@ -156,7 +156,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
     )
 }
 
-pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
+pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let mut items = Vec::new();
 
     // tables
@@ -229,7 +229,7 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
     items.push(lexerImpl(cx));
     println!("done!");
 
-    ~CodeGenerator {
+    box CodeGenerator {
         span: sp,
         // FIXME:
         handler: diagnostic::mk_span_handler(diagnostic::default_handler(), CodeMap::new()),
@@ -318,8 +318,8 @@ pub fn userLexerimpl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
 
     (quote_item!(cx,
     impl Lexer {
-        fn new(reader: ~::std::io::Reader) -> ~Lexer {
-            ~$init_expr
+        fn new(reader: Box<::std::io::Reader>) -> Box<Lexer> {
+            box $init_expr
         }
 
         #[inline(always)]
@@ -425,7 +425,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt) -> @ast::Item {
             Some(ch)
         }
 
-        fn new(stream: ~::std::io::Reader) -> RustLexLexer {
+        fn new(stream: Box<::std::io::Reader>) -> RustLexLexer {
             let mut lex = RustLexLexer {
                 stream: stream,
                 inp: vec!(RustLexBuffer{

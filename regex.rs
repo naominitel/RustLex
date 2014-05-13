@@ -4,30 +4,30 @@ use util::BinSetu8;
 #[deriving(Clone)]
 pub enum Regex {
     // binary operators
-    Or(~Regex, ~Regex),
-    Cat(~Regex, ~Regex),
+    Or(Box<Regex>, Box<Regex>),
+    Cat(Box<Regex>, Box<Regex>),
 
     // unary operators
-    Maybe(~Regex),
-    Closure(~Regex),
+    Maybe(Box<Regex>),
+    Closure(Box<Regex>),
 
     // constants
-    Class(~BinSetu8),
-    NotClass(~BinSetu8),
+    Class(Box<BinSetu8>),
+    NotClass(Box<BinSetu8>),
     Var(Rc<Regex>),
     Char(u8),
     Any
 }
 
-pub fn string(string: &str) -> Option<~Regex> {
+pub fn string(string: &str) -> Option<Box<Regex>> {
     let mut it = string.bytes();
-    let mut reg = ~Char(match it.next() {
+    let mut reg = box Char(match it.next() {
         Some(ch) => ch,
         None => return None
     });
 
     for ch in it {
-        reg = ~Cat(reg, ~Char(ch));
+        reg = box Cat(reg, box Char(ch));
     }
 
     Some(reg)

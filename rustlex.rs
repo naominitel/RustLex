@@ -31,7 +31,7 @@ pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {
         Vec::from_slice(args)
     );
 
-    let def = ~parser::parse(&mut p);
+    let def = box parser::parse(&mut p);
     let lex = lexer::Lexer::new(def, cx);
     lex.genCode(cx, sp)
 }
@@ -40,7 +40,7 @@ pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {
 pub fn registrar(register: |Name, base::SyntaxExtension|) {
     register(
         syntax::parse::token::intern("rustlex"),
-        base::NormalTT(~base::BasicMacroExpander {
+        base::NormalTT(box base::BasicMacroExpander {
             expander: rustlex,
             span: None
         }, None)

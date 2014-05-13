@@ -47,8 +47,8 @@ pub struct Automaton {
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: Vec<(~regex::Regex, uint)>) -> ~Automaton {
-    let mut ret = ~Automaton {
+pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
+    let mut ret = box Automaton {
         states: ~[],
         initial: 0
     };
@@ -237,12 +237,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    pub fn eclosure_(&self, st: uint) -> ~BinSet {
+    pub fn eclosure_(&self, st: uint) -> Box<BinSet> {
         self.eclosure(&[st])
     }
 
-    pub fn eclosure(&self, st: &[uint]) -> ~BinSet {
-        let mut ret = ~BinSet::new(self.states.len());
+    pub fn eclosure(&self, st: &[uint]) -> Box<BinSet> {
+        let mut ret = box BinSet::new(self.states.len());
         let mut stack = Vec::with_capacity(st.len());
 
         for s in st.iter() {
