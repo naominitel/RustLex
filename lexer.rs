@@ -27,15 +27,15 @@ pub struct Rule {
 // set of rules
 pub struct Condition {
     pub name: Name,
-    pub rules: ~[Rule]
+    pub rules: Vec<Rule>
 }
 
 pub type Prop = (Name, P<Ty>, @Expr);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
-    pub properties: ~[Prop],
-    pub conditions: ~[Condition]
+    pub properties: Vec<Prop>,
+    pub conditions: Vec<Condition>
 }
 
 // The RustLex representation of a lexical analyser
@@ -51,9 +51,9 @@ pub struct LexerDef {
 //   this condition in auto.
 pub struct Lexer {
     auto: Box<dfa::Automaton>,
-    actions: ~[@Stmt],
-    conditions: ~[(Name, uint)],
-    properties: ~[Prop]
+    actions: Vec<@Stmt>,
+    conditions: Vec<(Name, uint)>,
+    properties: Vec<Prop>
 }
 
 mod codegen;
@@ -66,13 +66,13 @@ impl Lexer {
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
         let dummy_stmt = cx.stmt_expr(dummy_expr);
-        let mut acts = ~[dummy_stmt];
+        let mut acts = vec!(dummy_stmt);
         let mut id = 1u;
 
         // now build the automatas and record
         // the initial state number for each
         let mut dfas = dfa::Automaton::new();
-        let mut conds = ~[];
+        let mut conds = Vec::new();
 
         let box LexerDef { properties, conditions } = def;
         for cond in conditions.move_iter() {
@@ -97,7 +97,7 @@ impl Lexer {
         }
 
         println!("minimizing...");
-        match dfas.minimize(acts.len(), conds) {
+        match dfas.minimize(acts.len(), conds.as_mut_slice()) {
             Ok(dfa) => Lexer {
                 auto: dfa,
                 actions: acts,
@@ -105,9 +105,9 @@ impl Lexer {
                 properties: properties
             },
             Err(dfa::UnreachablePattern(pat)) => {
-                cx.span_note(acts[pat].span, "make sure it is not included \
+                cx.span_note(acts.get(pat).span, "make sure it is not included \
                     in another pattern. Latter patterns have precedence");
-                cx.span_fatal(acts[pat].span, "unreachable pattern")
+                cx.span_fatal(acts.get(pat).span, "unreachable pattern")
             }
         }
     }

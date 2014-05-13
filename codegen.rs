@@ -224,7 +224,7 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator
     // functions of the Lexer and InputBuffer structs
     // TODO:
 
-    let acts_match = actionsMatch(lex.actions, cx, sp);
+    let acts_match = actionsMatch(lex.actions.as_slice(), cx, sp);
     items.push(userLexerimpl(cx, sp, lex.properties.as_slice(), acts_match));
     items.push(lexerImpl(cx));
     println!("done!");

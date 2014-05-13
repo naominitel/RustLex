@@ -22,8 +22,8 @@ use util::BinSetu8;
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
-fn getProperties(parser: &mut Parser) -> ~[(Name, P<Ty>, @Expr)] {
-    let mut ret = ~[];
+fn getProperties(parser: &mut Parser) -> Vec<(Name, P<Ty>, @Expr)> {
+    let mut ret = Vec::new();
     let prop = token::intern("property");
     loop {
         match parser.token {
@@ -211,8 +211,8 @@ fn getDefinitions(parser: &mut Parser) -> Box<Env> {
 // list of rules of the form regex => action
 // stops as soon as we encounter a closing brace } which
 // indicates the end of the condition body
-fn getCondition(parser: &mut Parser, env: &Env) -> ~[Rule] {
-    let mut ret = ~[];
+fn getCondition(parser: &mut Parser, env: &Env) -> Vec<Rule> {
+    let mut ret = Vec::new();
     while !parser.eat(&token::RBRACE) {
         let reg = getRegex(parser, &token::FAT_ARROW, env);
         let stmt = parser.parse_stmt(Vec::new());
@@ -227,15 +227,15 @@ fn getCondition(parser: &mut Parser, env: &Env) -> ~[Rule] {
 // entries here may be either rules of the gorm regex => action
 // or "conditions" of the form condition { ... } that contains rules
 // rules outside conditions implicitely belong to the "INITIAL" condition
-fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
+fn getConditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
     // remember the names of the conditions we already
     // encountered and where we stored their rules in
     // the conditions array
     let mut cond_names: HashMap<Name, uint> = HashMap::new();
-    let mut ret = ~[];
+    let mut ret = Vec::new();
     let initial = Condition {
         name: token::intern("INITIAL"),
-        rules: ~[]
+        rules: Vec::new()
     };
 
     cond_names.insert(initial.name, 0);
@@ -265,7 +265,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                     // have we seen this condition before ?
                     match cond_names.find_copy(&id.name) {
                         Some(i) => {
-                            ret[i].rules.push_all_move(rules);
+                            ret.get_mut(i).rules.push_all_move(rules);
                             continue
                         }
 
@@ -280,7 +280,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                     // regex => action, with regex beginning by an identifier
                     let reg = getRegex(parser, &token::FAT_ARROW, env);
                     let stmt = parser.parse_stmt(Vec::new());
-                    ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                    ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
                 }
             }
 
@@ -289,7 +289,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                 // beginning of a regular expression
                 let reg = getRegex(parser, &token::FAT_ARROW, env);
                 let stmt = parser.parse_stmt(Vec::new());
-                ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
             }
         }
     }

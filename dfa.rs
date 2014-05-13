@@ -38,7 +38,7 @@ impl Automaton {
     pub fn determinize(&mut self, nfa: &nfa::Automaton) {
         let eclos = nfa.eclosure_(nfa.initial);
         let ini = self.create_state(0, Some(eclos));
-        let mut unmarked = ~[ini];
+        let mut unmarked = vec!(ini);
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
