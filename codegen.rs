@@ -6,8 +6,8 @@ use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
 use syntax::diagnostic;
-use syntax::ext::base::AnyMacro;
 use syntax::ext::base::ExtCtxt;
+use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
 use syntax::parse::token;
 use syntax::util::small_vector::SmallVector;
@@ -27,17 +27,17 @@ struct CodeGenerator {
 }
 
 
-impl AnyMacro for CodeGenerator {
-    fn make_items(&self) -> SmallVector<@ast::Item> {
-        SmallVector::many(self.items.clone())
+impl MacResult for CodeGenerator {
+    fn make_items(&self) -> Option<SmallVector<@ast::Item>> {
+        Some(SmallVector::many(self.items.clone()))
     }
 
-    fn make_stmt(&self) -> @ast::Stmt {
+    fn make_stmt(&self) -> Option<@ast::Stmt> {
         self.handler.span_unimpl(self.span,
             "invoking rustlex on statement context is not implemented");
     }
 
-    fn make_expr(&self) -> @ast::Expr {
+    fn make_expr(&self) -> Option<@ast::Expr> {
         self.handler.span_fatal(self.span,
             "rustlex! invoked on expression context");
     }
@@ -80,7 +80,7 @@ pub fn lexerStruct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> @ast::Item {
 
     cx.item_struct(sp,
         ast::Ident::new(token::intern("Lexer")),
-        ast::StructDef { ctor_id: None, fields: fields }
+        ast::StructDef { ctor_id: None, fields: fields, super_struct: None, is_virtual: false }
     )
 }
 

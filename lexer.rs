@@ -9,7 +9,6 @@ use syntax::ast::Ty;
 use syntax::codemap::Span;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
-use syntax::ext::base::MRAny;
 use syntax::ext::build::AstBuilder;
 
 // a rule is a regular expression pattern associated
@@ -119,8 +118,8 @@ impl Lexer {
     //   make the writing of actions easier
     // - the Lexer struct and its impl block that implements the actual
     // code of simulation of the automaton
-    pub fn genCode(&self, cx: &mut ExtCtxt, sp: Span) -> MacResult {
+    pub fn genCode(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult> {
         println!("generating code...");
-        MRAny(codegen::codegen(self, cx, sp))
+        codegen::codegen(self, cx, sp) as Box<MacResult>
     }
 }

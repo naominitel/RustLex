@@ -24,7 +24,7 @@ mod regex;
 mod util;
 
 // the main rustlex macro
-pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> MacResult {
+pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> Box<MacResult> {
     let mut p = ::syntax::parse::new_parser_from_tts(
         cx.parse_sess,
         cx.cfg.clone(),
