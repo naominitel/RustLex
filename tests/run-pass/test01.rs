@@ -41,8 +41,8 @@ rustlex!(
     INTCONST => return Some(TokInt)
     FLTCONST => return Some(TokFloat)
     ID => return Some(TokId)
-    STR => println!("Saw an str: {:s}", yystr)
-    . => println!("Unknown token: {:s}", yystr)
+    STR => println!("Saw a str: {:s}", _yystr)
+    . => println!("Unknown token: {:s}", _yystr)
 )
 
 fn main() {
