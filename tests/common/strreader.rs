@@ -26,6 +26,6 @@ impl<'a> io::Reader for StrReader<'a> {
     }
 }
 
-pub fn reader<'a>(s: &'a str) -> ~StrReader<'a> {
-    ~StrReader { str: s, pos: 0 } 
+pub fn reader<'a>(s: &'a str) -> Box<StrReader<'a>> {
+    box StrReader { str: s, pos: 0 }
 }

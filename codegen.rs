@@ -6,8 +6,8 @@ use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
 use syntax::diagnostic;
-use syntax::ext::base::AnyMacro;
 use syntax::ext::base::ExtCtxt;
+use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
 use syntax::parse::token;
 use syntax::util::small_vector::SmallVector;
@@ -27,17 +27,17 @@ struct CodeGenerator {
 }
 
 
-impl AnyMacro for CodeGenerator {
-    fn make_items(&self) -> SmallVector<@ast::Item> {
-        SmallVector::many(self.items.clone())
+impl MacResult for CodeGenerator {
+    fn make_items(&self) -> Option<SmallVector<@ast::Item>> {
+        Some(SmallVector::many(self.items.clone()))
     }
 
-    fn make_stmt(&self) -> @ast::Stmt {
+    fn make_stmt(&self) -> Option<@ast::Stmt> {
         self.handler.span_unimpl(self.span,
             "invoking rustlex on statement context is not implemented");
     }
 
-    fn make_expr(&self) -> @ast::Expr {
+    fn make_expr(&self) -> Option<@ast::Expr> {
         self.handler.span_fatal(self.span,
             "rustlex! invoked on expression context");
     }
@@ -80,7 +80,7 @@ pub fn lexerStruct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> @ast::Item {
 
     cx.item_struct(sp,
         ast::Ident::new(token::intern("Lexer")),
-        ast::StructDef { ctor_id: None, fields: fields }
+        ast::StructDef { ctor_id: None, fields: fields, super_struct: None, is_virtual: false }
     )
 }
 
@@ -145,7 +145,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
 
         (quote_item!(cx,
             struct RustLexLexer {
-                stream: ~std::io::Reader,
+                stream: Box<std::io::Reader>,
                 inp: Vec<RustLexBuffer>,
                 condition: uint,
                 advance: RustLexPos,
@@ -156,7 +156,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
     )
 }
 
-pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
+pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let mut items = Vec::new();
 
     // tables
@@ -224,12 +224,12 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> ~CodeGenerator {
     // functions of the Lexer and InputBuffer structs
     // TODO:
 
-    let acts_match = actionsMatch(lex.actions, cx, sp);
+    let acts_match = actionsMatch(lex.actions.as_slice(), cx, sp);
     items.push(userLexerimpl(cx, sp, lex.properties.as_slice(), acts_match));
     items.push(lexerImpl(cx));
     println!("done!");
 
-    ~CodeGenerator {
+    box CodeGenerator {
         span: sp,
         // FIXME:
         handler: diagnostic::mk_span_handler(diagnostic::default_handler(), CodeMap::new()),
@@ -318,8 +318,8 @@ pub fn userLexerimpl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
 
     (quote_item!(cx,
     impl Lexer {
-        fn new(reader: ~::std::io::Reader) -> ~Lexer {
-            ~$init_expr
+        fn new(reader: Box<::std::io::Reader>) -> Box<Lexer> {
+            box $init_expr
         }
 
         #[inline(always)]
@@ -425,7 +425,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt) -> @ast::Item {
             Some(ch)
         }
 
-        fn new(stream: ~::std::io::Reader) -> RustLexLexer {
+        fn new(stream: Box<::std::io::Reader>) -> RustLexLexer {
             let mut lex = RustLexLexer {
                 stream: stream,
                 inp: vec!(RustLexBuffer{

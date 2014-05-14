@@ -8,8 +8,8 @@ pub mod svec {
     pub enum SVec {
         Zero,
         One(u8),
-        Many(~BinSetu8),
-        ManyBut(~BinSetu8),
+        Many(Box<BinSetu8>),
+        ManyBut(Box<BinSetu8>),
         Any
     }
 }

@@ -13,7 +13,7 @@ struct State {
     // for DFA determinization
     // remember the set of NFA states
     // that this state corresponds to
-    states: ~util::BinSet,
+    states: Box<util::BinSet>,
     pub action: uint
 }
 
@@ -38,7 +38,7 @@ impl Automaton {
     pub fn determinize(&mut self, nfa: &nfa::Automaton) {
         let eclos = nfa.eclosure_(nfa.initial);
         let ini = self.create_state(0, Some(eclos));
-        let mut unmarked = ~[ini];
+        let mut unmarked = vec!(ini);
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
@@ -82,8 +82,8 @@ impl Automaton {
         self.initial = ini;
     }
 
-    pub fn new() -> ~Automaton {
-        let mut ret = ~Automaton {
+    pub fn new() -> Box<Automaton> {
+        let mut ret = box Automaton {
             states: vec!(),
             initial: 0
         };
@@ -94,12 +94,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    fn create_state(&mut self, act: uint, states: Option<~util::BinSet>) -> uint {
+    fn create_state(&mut self, act: uint, states: Option<Box<util::BinSet>>) -> uint {
         self.states.push(State {
             trans: [0, .. 256],
             states: match states {
                 Some(s) => s,
-                None => ~util::BinSet::new(0u)
+                None => box util::BinSet::new(0u)
             },
             action: act
         });
@@ -110,7 +110,7 @@ impl Automaton {
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
     pub fn minimize(&self, acts_count: uint, conditions: &mut [(u32, uint)])
-        -> result::Result<~Automaton, MinimizationError> {
+        -> result::Result<Box<Automaton>, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
         let mut groups = Vec::with_capacity(self.states.len());
@@ -192,7 +192,7 @@ impl Automaton {
         }
 
         // construct the minimal DFA
-        let mut ret = ~Automaton {
+        let mut ret = box Automaton {
             states: Vec::with_capacity(subgroups.len()),
             initial: groups.get(self.initial) + 1
         };

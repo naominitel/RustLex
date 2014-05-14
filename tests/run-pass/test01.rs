@@ -41,14 +41,14 @@ rustlex!(
     INTCONST => return Some(TokInt)
     FLTCONST => return Some(TokFloat)
     ID => return Some(TokId)
-    STR => println!("Saw an str: {:s}", yystr)
-    . => println!("Unknown token: {:s}", yystr)
+    STR => println!("Saw a str: {:s}", _yystr)
+    . => println!("Unknown token: {:s}", _yystr)
 )
 
 fn main() {
     let expected = vec!(TokId, TokId, TokId, TokFloat, TokId, TokInt, TokId, TokInt, TokId);
     let str = "foo bar baz 0.10 ii212\"aa\\\"aa\\.a\"\"a\" 0x121u baz 123foo ";
-    let inp = strreader::reader(str) as ~::std::io::Reader;
+    let inp = strreader::reader(str) as Box<::std::io::Reader>;
     let mut lexer = Lexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {

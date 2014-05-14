@@ -22,8 +22,8 @@ use util::BinSetu8;
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
-fn getProperties(parser: &mut Parser) -> ~[(Name, P<Ty>, @Expr)] {
-    let mut ret = ~[];
+fn getProperties(parser: &mut Parser) -> Vec<(Name, P<Ty>, @Expr)> {
+    let mut ret = Vec::new();
     let prop = token::intern("property");
     loop {
         match parser.token {
@@ -47,8 +47,8 @@ fn getProperties(parser: &mut Parser) -> ~[(Name, P<Ty>, @Expr)] {
 
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
-fn getCharClass(parser: &mut Parser) -> ~BinSetu8 {
-    let mut ret = ~BinSetu8::new(256);
+fn getCharClass(parser: &mut Parser) -> Box<BinSetu8> {
+    let mut ret = box BinSetu8::new(256);
     loop {
         let tok = parser.bump_and_get();
         match tok {
@@ -105,30 +105,30 @@ fn getCharClass(parser: &mut Parser) -> ~BinSetu8 {
 // - an identifier refering to another expression
 // parenthesized subexpressions are also parsed here since the have
 // the same operator precedence as the constants
-fn getConst(parser: &mut Parser, env: &Env) -> ~Regex {
+fn getConst(parser: &mut Parser, env: &Env) -> Box<Regex> {
     let tok = parser.bump_and_get();
     // here we expect either
     // the start of a character-class, '['
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
-        token::DOT => ~regex::Any,
+        token::DOT => box regex::Any,
         token::LPAREN => getRegex(parser, &token::RPAREN, env),
         token::LBRACKET => {
             if parser.eat(&token::BINOP(token::CARET)) {
-                ~regex::NotClass(getCharClass(parser))
+                box regex::NotClass(getCharClass(parser))
             } else {
-                ~regex::Class(getCharClass(parser))
+                box regex::Class(getCharClass(parser))
             }
         }
-        token::LIT_CHAR(ch) => ~regex::Char(ch as u8),
+        token::LIT_CHAR(ch) => box regex::Char(ch as u8),
         token::LIT_STR(id) => match regex::string(token::get_name(id.name).get()) {
             Some(reg) => reg,
             None => parser.span_fatal(parser.last_span,
                 "bad string constant in regular expression")
         },
         token::IDENT(id, _) => match env.find_copy(&id.name) {
-            Some(value) => ~regex::Var(value),
+            Some(value) => box regex::Var(value),
             None => parser.span_fatal(parser.last_span,
                 format!("unknown identifier: {:s}", 
                     token::get_name(id.name).get()))
@@ -139,13 +139,13 @@ fn getConst(parser: &mut Parser, env: &Env) -> ~Regex {
 
 // a "closure" in a regular expression, i.e. expr*
 // the * operator has lower precedence that concatenation
-fn getClosure(parser: &mut Parser, env: &Env) -> ~Regex {
+fn getClosure(parser: &mut Parser, env: &Env) -> Box<Regex> {
     let reg = getConst(parser, env);
-    if parser.eat(&token::BINOP(token::STAR)) { ~regex::Closure(reg) }
+    if parser.eat(&token::BINOP(token::STAR)) { box regex::Closure(reg) }
     else if parser.eat(&token::BINOP(token::PLUS)) {
-        ~regex::Cat(reg.clone(), ~regex::Closure(reg))
+        box regex::Cat(reg.clone(), box regex::Closure(reg))
     }
-    else if parser.eat(&token::BINOP(token::PERCENT)) { ~regex::Maybe(reg) }
+    else if parser.eat(&token::BINOP(token::PERCENT)) { box regex::Maybe(reg) }
     else { reg }
 }
 
@@ -153,14 +153,14 @@ fn getClosure(parser: &mut Parser, env: &Env) -> ~Regex {
 // continues until it reaches the end of the current subexpr,
 // indicated by the end parameter or an or operator, which has
 // higher precedence. Concatenation is left-assoc
-fn getConcat(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
+fn getConcat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
     let opl = getClosure(parser, env);
     if &parser.token == end ||
         parser.token == token::BINOP(token::OR) {
         opl
     } else {
         let opr = getConcat(parser, end, env);
-        ~regex::Cat(opl, opr)
+        box regex::Cat(opl, opr)
     }
 } 
 
@@ -169,7 +169,7 @@ fn getConcat(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
 // if we are not at the end of the current subexpression as indicated by
 // the end parameter, we try to read a | operator followed by another
 // expression which is parsed recursively (or is left-assoc)
-fn getRegex(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
+fn getRegex(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
     if parser.eat(end) {
         parser.unexpected();
     }
@@ -178,14 +178,14 @@ fn getRegex(parser: &mut Parser, end: &token::Token, env: &Env) -> ~Regex {
     else {
         parser.expect(&token::BINOP(token::OR));
         let right = getRegex(parser, end, env);
-        ~regex::Or(left, right)
+        box regex::Or(left, right)
     }
 }
 
 // a pattern is an association of a name to a regular expression
 // this function expects the next tokens to be id = reg, with id
 // being a non-keyword identifier and reg a literal constant
-fn getPattern(parser: &mut Parser, env: &Env) -> (Ident, ~Regex) {
+fn getPattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
     let name = parser.parse_ident();
     parser.expect(&token::EQ);
     let reg = getRegex(parser, &token::SEMI, env);
@@ -198,8 +198,8 @@ fn getPattern(parser: &mut Parser, env: &Env) -> (Ident, ~Regex) {
 // does not match. returns an error if it encounters a malformed
 // definition, otherwise return the "environment" containing named
 // regular expression definitions
-fn getDefinitions(parser: &mut Parser) -> ~Env {
-    let mut ret = ~HashMap::new();
+fn getDefinitions(parser: &mut Parser) -> Box<Env> {
+    let mut ret = box HashMap::new();
     while parser.eat_keyword(keywords::Let) {
         let (id, pat) = getPattern(parser, ret);
         ret.insert(id.name, Rc::new(*pat));
@@ -211,8 +211,8 @@ fn getDefinitions(parser: &mut Parser) -> ~Env {
 // list of rules of the form regex => action
 // stops as soon as we encounter a closing brace } which
 // indicates the end of the condition body
-fn getCondition(parser: &mut Parser, env: &Env) -> ~[Rule] {
-    let mut ret = ~[];
+fn getCondition(parser: &mut Parser, env: &Env) -> Vec<Rule> {
+    let mut ret = Vec::new();
     while !parser.eat(&token::RBRACE) {
         let reg = getRegex(parser, &token::FAT_ARROW, env);
         let stmt = parser.parse_stmt(Vec::new());
@@ -227,15 +227,15 @@ fn getCondition(parser: &mut Parser, env: &Env) -> ~[Rule] {
 // entries here may be either rules of the gorm regex => action
 // or "conditions" of the form condition { ... } that contains rules
 // rules outside conditions implicitely belong to the "INITIAL" condition
-fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
+fn getConditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
     // remember the names of the conditions we already
     // encountered and where we stored their rules in
     // the conditions array
     let mut cond_names: HashMap<Name, uint> = HashMap::new();
-    let mut ret = ~[];
+    let mut ret = Vec::new();
     let initial = Condition {
         name: token::intern("INITIAL"),
-        rules: ~[]
+        rules: Vec::new()
     };
 
     cond_names.insert(initial.name, 0);
@@ -265,7 +265,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                     // have we seen this condition before ?
                     match cond_names.find_copy(&id.name) {
                         Some(i) => {
-                            ret[i].rules.push_all_move(rules);
+                            ret.get_mut(i).rules.push_all_move(rules);
                             continue
                         }
 
@@ -280,7 +280,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                     // regex => action, with regex beginning by an identifier
                     let reg = getRegex(parser, &token::FAT_ARROW, env);
                     let stmt = parser.parse_stmt(Vec::new());
-                    ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                    ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
                 }
             }
 
@@ -289,7 +289,7 @@ fn getConditions(parser: &mut Parser, env: &Env) -> ~[Condition] {
                 // beginning of a regular expression
                 let reg = getRegex(parser, &token::FAT_ARROW, env);
                 let stmt = parser.parse_stmt(Vec::new());
-                ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
             }
         }
     }

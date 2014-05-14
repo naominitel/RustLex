@@ -15,7 +15,7 @@ enum Etrans {
     No,
     One(uint),
     Two(uint, uint),
-    More(~[uint])
+    More(Vec<uint>)
 }
 
 struct State {
@@ -40,29 +40,29 @@ struct State {
 }
 
 pub struct Automaton {
-    pub states: ~[State],
+    pub states: Vec<State>,
     pub initial: uint
 }
 
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: Vec<(~regex::Regex, uint)>) -> ~Automaton {
-    let mut ret = ~Automaton {
-        states: ~[],
+pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
+    let mut ret = box Automaton {
+        states: Vec::new(),
         initial: 0
     };
 
     let ini = ret.create_state();
-    let mut etrans = ~[];
+    let mut etrans = Vec::new();
 
     for (reg, act) in regexs.move_iter() {
         let (init, final) = ret.init_from_regex(reg);
         etrans.push(init);
-        ret.states[final].action = act;
+        ret.states.get_mut(final).action = act;
     }
 
-    ret.states[ini].etrans = More(etrans);
+    ret.states.get_mut(ini).etrans = More(etrans);
     ret.initial = ini;
     ret
 }
@@ -70,7 +70,7 @@ pub fn build_nfa(regexs: Vec<(~regex::Regex, uint)>) -> ~Automaton {
 impl Automaton {
     #[inline(always)]
     pub fn final(&self, state: uint) -> bool {
-        self.states[state].action != 0
+        self.states.get(state).action != 0
     }
 
     // insert a new empty state and return its number
@@ -86,7 +86,7 @@ impl Automaton {
 
     #[inline(always)]
     fn setnonfinal(&mut self, state: uint) {
-        self.states[state].action = 0;
+        self.states.get_mut(state).action = 0;
     }
 
     // the construction is implemented recursively. Each call builds a
@@ -109,11 +109,11 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 // new initial state e-transitions to old init states
-                self.states[new_init].etrans = Two(linit, rinit);
+                self.states.get_mut(new_init).etrans = Two(linit, rinit);
 
                 // old final states e-transition to new final state
-                self.states[lfinal].etrans = One(new_final);
-                self.states[rfinal].etrans = One(new_final);
+                self.states.get_mut(lfinal).etrans = One(new_final);
+                self.states.get_mut(rfinal).etrans = One(new_final);
 
                 (new_init, new_final)
             }
@@ -130,8 +130,8 @@ impl Automaton {
 
                 let (finit, ffinal) = self.init_from_regex(&**fst);
                 self.setnonfinal(ffinal);
-                self.states[ffinal].etrans = etrans;
-                self.states[ffinal].trans = trans;
+                self.states.get_mut(ffinal).etrans = etrans;
+                self.states.get_mut(ffinal).trans = trans;
 
                 (finit, sfinal)
             }
@@ -142,8 +142,8 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 self.setnonfinal(final);
-                self.states[new_init].etrans = Two(new_final, init);
-                self.states[final].etrans = One(new_final);
+                self.states.get_mut(new_init).etrans = Two(new_final, init);
+                self.states.get_mut(final).etrans = One(new_final);
 
                 (new_init, new_final)
             }
@@ -154,8 +154,8 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 self.setnonfinal(final);
-                self.states[new_init].etrans = Two(new_final, init);
-                self.states[final].etrans = Two(new_final, init);
+                self.states.get_mut(new_init).etrans = Two(new_final, init);
+                self.states.get_mut(final).etrans = Two(new_final, init);
 
                 (new_init, new_final)
             }
@@ -163,14 +163,14 @@ impl Automaton {
             &regex::Class(ref vec) => {
                 let final = self.create_state();
                 let init = self.create_state();
-                self.states[init].trans = (svec::Many(vec.clone()), final);
+                self.states.get_mut(init).trans = (svec::Many(vec.clone()), final);
                 (init, final)
             }
 
             &regex::NotClass(ref set) => {
                 let final = self.create_state();
                 let init = self.create_state();
-                self.states[init].trans = (svec::ManyBut(set.clone()), final);
+                self.states.get_mut(init).trans = (svec::ManyBut(set.clone()), final);
                 (init, final)
             }
 
@@ -181,30 +181,30 @@ impl Automaton {
             &regex::Char(ch) => {
                 let final = self.create_state();
                 let init = self.create_state();
-                self.states[init].trans = (svec::One(ch), final);
+                self.states.get_mut(init).trans = (svec::One(ch), final);
                 (init, final)
             }
 
             &regex::Any => {
                 let final = self.create_state();
                 let init = self.create_state();
-                self.states[init].trans = (svec::Any, final);
+                self.states.get_mut(init).trans = (svec::Any, final);
                 (init, final)
             }
         }
     }
 
-    pub fn moves(&self, st: &BinSet) -> ~[Vec<uint>] {
-        let mut ret = ~[];
+    pub fn moves(&self, st: &BinSet) -> Vec<Vec<uint>> {
+        let mut ret = Vec::new();
         for _ in range(0, 256u) {
             ret.push(vec!());
         }
 
         for s in st.iter() {
-            match self.states[*s].trans {
+            match self.states.get(*s).trans {
                 (svec::Many(ref v), dst) =>
                     for &ch in v.states.iter() {
-                        ret[ch as uint].push(dst)
+                        ret.get_mut(ch as uint).push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
                     let data = &set.data;
@@ -218,7 +218,7 @@ impl Automaton {
                         }
 
                         if (chk & 1) == 0 {
-                            ret[ch].push(dst);
+                            ret.get_mut(ch).push(dst);
                         }
 
                         chk = chk >> 1;
@@ -226,9 +226,9 @@ impl Automaton {
                 }
                 (svec::Any, dst) =>
                     for ch in range(0, 256u) {
-                        ret[ch].push(dst);
+                        ret.get_mut(ch).push(dst);
                     },
-                (svec::One(ch), dst) => ret[ch as uint].push(dst),
+                (svec::One(ch), dst) => ret.get_mut(ch as uint).push(dst),
                 (svec::Zero, _) => ()
             }
         }
@@ -237,19 +237,19 @@ impl Automaton {
     }
 
     #[inline(always)]
-    pub fn eclosure_(&self, st: uint) -> ~BinSet {
+    pub fn eclosure_(&self, st: uint) -> Box<BinSet> {
         self.eclosure(&[st])
     }
 
-    pub fn eclosure(&self, st: &[uint]) -> ~BinSet {
-        let mut ret = ~BinSet::new(self.states.len());
+    pub fn eclosure(&self, st: &[uint]) -> Box<BinSet> {
+        let mut ret = box BinSet::new(self.states.len());
         let mut stack = Vec::with_capacity(st.len());
 
         for s in st.iter() {
             stack.push(*s);
             ret.insert(*s);
 
-            let action = self.states[*s].action;
+            let action = self.states.get(*s).action;
             if action > ret.action {
                 ret.action = action;
             }
@@ -257,14 +257,14 @@ impl Automaton {
 
         while !stack.is_empty() {
             let st = stack.pop().unwrap();
-            let st = &self.states[st];
+            let st = &self.states.get(st);
 
             match st.etrans {
                 One(i) if !ret.contains(i) => {
                     ret.insert(i);
                     stack.push(i);
 
-                    let action = self.states[i].action;
+                    let action = self.states.get(i).action;
                     if action > ret.action {
                         ret.action = action;
                     }
@@ -275,7 +275,7 @@ impl Automaton {
                         ret.insert(i);
                         stack.push(i);
 
-                        let action = self.states[i].action;
+                        let action = self.states.get(i).action;
                         if action > ret.action {
                             ret.action = action;
                         }
@@ -285,7 +285,7 @@ impl Automaton {
                         ret.insert(j);
                         stack.push(j);
 
-                        let action = self.states[j].action;
+                        let action = self.states.get(j).action;
                         if action > ret.action {
                             ret.action = action;
                         }
@@ -298,7 +298,7 @@ impl Automaton {
                             ret.insert(*i);
                             stack.push(*i);
 
-                            let action = self.states[*i].action;
+                            let action = self.states.get(*i).action;
                             if action > ret.action {
                                 ret.action = action;
                             }
@@ -327,7 +327,7 @@ impl Automaton {
 
         // outputs final states as doublecircle-shaped nodes
         for st in range(0, self.states.len()) {
-            if self.states[st].action != 0 {
+            if self.states.get(st).action != 0 {
                 write!(out, "{:u} ", st);
             }
         }
@@ -336,7 +336,7 @@ impl Automaton {
         writeln!(out, "\tnode [shape=circle];");
 
         for st in range(0, self.states.len()) {
-            match self.states[st].trans {
+            match self.states.get(st).trans {
                 (svec::One(ch), dst) => {
                     let mut esc = StrBuf::new();
                     (ch as char).escape_default(|c| { esc.push_char(c); });
@@ -371,7 +371,7 @@ impl Automaton {
             }
 
             
-            match self.states[st].etrans {
+            match self.states.get(st).etrans {
                 One(s) => {
                     writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, s);
                 }
