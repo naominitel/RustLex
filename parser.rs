@@ -131,7 +131,7 @@ fn getConst(parser: &mut Parser, env: &Env) -> Box<Regex> {
             Some(value) => box regex::Var(value),
             None => parser.span_fatal(parser.last_span,
                 format!("unknown identifier: {:s}", 
-                    token::get_name(id.name).get()))
+                    token::get_name(id.name).get()).as_slice())
         },
         _ => parser.unexpected_last(&tok)
     }

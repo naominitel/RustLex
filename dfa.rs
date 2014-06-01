@@ -281,7 +281,7 @@ impl Automaton {
                 match st.trans[ch as uint] {
                     0 => (),
                     dst => {
-                        let mut esc = StrBuf::new();
+                        let mut esc = String::new();
                         (ch as char).escape_default(|c| { esc.push_char(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                             i, dst, esc);
