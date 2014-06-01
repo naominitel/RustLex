@@ -122,7 +122,7 @@ impl BinSetu8 {
     }
 }
 
-impl Eq for BinSet {
+impl PartialEq for BinSet {
     fn eq(&self, other: &BinSet) -> bool {
         // assumes both vectors have the same length
         let len = self.data.len();

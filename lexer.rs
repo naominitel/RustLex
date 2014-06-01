@@ -55,6 +55,7 @@ pub struct Lexer {
     properties: Vec<Prop>
 }
 
+#[path = "codegen.rs"]
 mod codegen;
 
 impl Lexer {

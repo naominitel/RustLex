@@ -8,7 +8,7 @@ mod strreader;
 // The Token type is returned by the lexer function on
 // each call and must be declared in the same module
 // as where the rustlex! macro is invoked
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 enum Token {
     TokInt,
     TokFloat,

@@ -135,7 +135,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
         )).unwrap(),
 
         (quote_item!(&*cx,
-            impl Eq for RustLexPos {
+            impl PartialEq for RustLexPos {
                 fn eq(&self, other: &RustLexPos) -> bool {
                     self.buf == other.buf &&
                     self.off == other.off
@@ -232,7 +232,10 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator
     box CodeGenerator {
         span: sp,
         // FIXME:
-        handler: diagnostic::mk_span_handler(diagnostic::default_handler(), CodeMap::new()),
+        handler: diagnostic::mk_span_handler(
+            diagnostic::default_handler(diagnostic::Auto),
+            CodeMap::new()
+        ),
         items: items
     }
 }
@@ -250,7 +253,7 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
             let RustLexPos { buf: nbuf, off: noff } = self._internal_lexer.pos;
             if buf == nbuf {
                 let slice = self._internal_lexer.inp.get(buf).slice(off, noff);
-                let mut buf = StrBuf::with_capacity(slice.len());
+                let mut buf = String::with_capacity(slice.len());
                 unsafe { buf.push_bytes(slice); }
                 buf
             } else {
@@ -260,7 +263,7 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
                     capacity += self._internal_lexer.inp.get(i).len();
                 }
                 capacity += noff;
-                let mut yystr = StrBuf::with_capacity(capacity);
+                let mut yystr = String::with_capacity(capacity);
 
                 // unsafely pushes all bytes onto the buf
                 let iter = self._internal_lexer.inp.slice(buf + 1, nbuf).iter();
@@ -377,7 +380,7 @@ pub fn lexerImpl(cx: &mut ExtCtxt) -> @ast::Item {
                 ref mut valid
             } = self.inp.get_mut(self.pos.buf);
             *valid = true;
-            self.stream.push_exact(d, RUSTLEX_BUFSIZE);
+            self.stream.push(RUSTLEX_BUFSIZE, d);
             self.pos.off = 0;
         }
 
