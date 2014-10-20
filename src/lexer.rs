@@ -105,9 +105,9 @@ impl Lexer {
                 properties: def.properties.clone()
             },
             Err(dfa::UnreachablePattern(pat)) => {
-                cx.span_note(acts.get(pat).span, "make sure it is not included \
+                cx.span_note(acts[pat].span, "make sure it is not included \
                     in another pattern. Latter patterns have precedence");
-                cx.span_fatal(acts.get(pat).span, "unreachable pattern")
+                cx.span_fatal(acts[pat].span, "unreachable pattern")
             }
         }
     }
@@ -119,7 +119,7 @@ impl Lexer {
     //   make the writing of actions easier
     // - the Lexer struct and its impl block that implements the actual
     // code of simulation of the automaton
-    pub fn genCode<'a>(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult+'a> {
+    pub fn gen_code<'a>(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult+'a> {
         println!("generating code...");
         codegen::codegen(self, cx, sp) as Box<MacResult+'a>
     }

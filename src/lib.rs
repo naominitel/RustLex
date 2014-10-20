@@ -1,6 +1,7 @@
 #![feature(plugin_registrar)]
 //#![feature(macro_rules)]
 #![feature(quote)]
+#![feature(macro_rules)]
 
 #![crate_type="dylib"]
 #![crate_name="rustlex"]
@@ -9,10 +10,8 @@ extern crate collections;
 extern crate syntax;
 extern crate rustc;
 
-use syntax::ast::Name;
 use syntax::ast::TokenTree;
 use syntax::codemap::Span;
-use syntax::ext::base;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
 use rustc::plugin::Registry;
@@ -25,16 +24,17 @@ mod regex;
 mod util;
 
 // the main rustlex macro
-pub fn rustlex<'a>(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree]) -> Box<MacResult+'a> {
+pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree])
+        -> Box<MacResult+'static> {
     let mut p = ::syntax::parse::new_parser_from_tts(
         cx.parse_sess,
         cx.cfg.clone(),
-        Vec::from_slice(args)
+        args.to_vec()
     );
 
     let def = box parser::parse(&mut p);
     let lex = lexer::Lexer::new(def, cx);
-    lex.genCode(cx, sp)
+    lex.gen_code(cx, sp)
 }
 
 #[plugin_registrar]

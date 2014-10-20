@@ -14,7 +14,7 @@ impl<'a> io::Reader for StrReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::IoResult<uint> {
         let mut ret = 0;
         while self.pos < self.str.len() && ret < buf.len() {
-            buf[ret] = self.str[self.pos];
+            buf[ret] = self.str.as_bytes()[self.pos];
             self.pos += 1;
             ret += 1;
         }

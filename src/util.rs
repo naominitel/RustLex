@@ -50,8 +50,8 @@ impl BinSet {
     #[inline(always)]
     pub fn contains(&self, state: uint) -> bool {
         let chunk = state >> 6;
-        let idx = (state & 0x3F);
-        ((self.data.get(chunk) >> idx) & 1) != 0
+        let idx = state & 0x3F;
+        ((self.data[chunk] >> idx) & 1) != 0
     }
 
     #[inline(always)]
@@ -96,10 +96,11 @@ impl BinSetu8 {
     // higher bits give the index of the chunk in the data array
 
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn contains(&self, state: u8) -> bool {
         let chunk = (state >> 6u) as uint;
         let idx = (state & 0x3Fu8) as uint;
-        ((self.data.get(chunk) >> idx) & 1) != 0
+        ((self.data[chunk] >> idx) & 1) != 0
     }
 
     #[inline(always)]
@@ -128,7 +129,7 @@ impl PartialEq for BinSet {
         let len = self.data.len();
         let mut i = 0;
         while i < len {
-            if self.data.get(i) != other.data.get(i) {
+            if self.data[i] != other.data[i] {
                 return false;
             }
             i += 1;

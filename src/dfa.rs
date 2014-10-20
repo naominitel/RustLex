@@ -43,10 +43,10 @@ impl Automaton {
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
-            let moves = nfa.moves(&*self.states.get(next).states);
+            let moves = nfa.moves(&*self.states[next].states);
 
             let mut ch = 0u8;
-            'g: for dst in moves.move_iter() {
+            'g: for dst in moves.into_iter() {
                 let clos = nfa.eclosure(dst.as_slice());
 
                 if clos.is_empty() {
@@ -130,7 +130,7 @@ impl Automaton {
         let mut subgroups: Vec<Vec<(uint, uint)>> = Vec::from_elem(acts_count, vec!());
         loop {
             // subgroups become groups, reinitialize subgroups
-            for i in subgroups.mut_iter() {
+            for i in subgroups.iter_mut() {
                 *i = vec!();
             }
 
@@ -139,22 +139,22 @@ impl Automaton {
             let mut modified = false;
 
             'g: for s in range(0, groups.len()) {
-                let &group = groups.get(s);
+                let group = groups[s];
 
                 // check if we have a subgroup of the group of s
                 // that matches its transitions. st is the representing
                 // state of the subgroup subgr
-                'h: for &(subgr, st) in subgroups.get(group).iter() {
+                'h: for &(subgr, st) in subgroups[group].iter() {
                     // if st and s are similar, s goes to subgr
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
                     for i in range(0, 255u) {
                         let (s1, s2) = (
-                            self.states.get(st).trans[i as uint],
-                            self.states.get(s).trans[i as uint]
+                            self.states[st].trans[i as uint],
+                            self.states[s].trans[i as uint]
                         );
-                        if groups.get(s1) != groups.get(s2) {
+                        if groups[s1] != groups[s2] {
                             continue 'h;
                         }
                     }
@@ -169,7 +169,7 @@ impl Automaton {
                 // no subgroup, create one
                 // if there is no subgroup for this group, reuse the
                 // same index
-                if subgroups.get(group).is_empty() {
+                if subgroups[group].is_empty() {
                     subgroups.get_mut(group).push((group, s));
                     new_groups.push(group);
                 } else {
@@ -195,7 +195,7 @@ impl Automaton {
         // construct the minimal DFA
         let mut ret = box Automaton {
             states: Vec::with_capacity(subgroups.len()),
-            initial: groups.get(self.initial) + 1
+            initial: groups[self.initial] + 1
         };
 
         // create the dead state
@@ -221,9 +221,9 @@ impl Automaton {
                 println!("action {:u} unreachable", action);
                 return Err(UnreachablePattern(action));
             }
-            let &(_, st) = gr.get(0);
+            let (_, st) = gr[0];
 
-            let st = &self.states.get(st);
+            let st = &self.states[st];
             let state = ret.create_state(st.action, None);
             let state = &mut ret.states.get_mut(state);
 
@@ -234,7 +234,7 @@ impl Automaton {
             for t in st.trans.iter() {
                 match *t {
                     0 => state.trans[ch] = 0,
-                    _ => state.trans[ch] = groups.get(*t) + 1
+                    _ => state.trans[ch] = groups[*t] + 1
                 }
                 ch += 1
             };
@@ -243,9 +243,9 @@ impl Automaton {
         }
 
         // update the initial state numbers of each condition
-        for c in conditions.mut_iter() {
+        for c in conditions.iter_mut() {
             let (n, st) = *c;
-            *c = (n, groups.get(st) + 1);
+            *c = (n, groups[st] + 1);
         }
 
         Ok(ret)
@@ -283,7 +283,7 @@ impl Automaton {
                     0 => (),
                     dst => {
                         let mut esc = String::new();
-                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        (ch as char).escape_default(|c| { esc.push(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                             i, dst, esc);
                     }

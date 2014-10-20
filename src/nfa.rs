@@ -56,7 +56,7 @@ pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
     let ini = ret.create_state();
     let mut etrans = Vec::new();
 
-    for (reg, act) in regexs.move_iter() {
+    for (reg, act) in regexs.into_iter() {
         let (init, f1nal) = ret.init_from_regex(&*reg);
         etrans.push(init);
         ret.states.get_mut(f1nal).action = act;
@@ -69,8 +69,9 @@ pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
 
 impl Automaton {
     #[inline(always)]
+    #[allow(dead_code)]
     pub fn f1nal(&self, state: uint) -> bool {
-        self.states.get(state).action != 0
+        self.states[state].action != 0
     }
 
     // insert a new empty state and return its number
@@ -125,7 +126,7 @@ impl Automaton {
                 // this is possible at a cheap cost since the initial
                 // state is always the last created
                 let State {
-                    etrans: etrans, trans: trans, ..
+                    etrans, trans, ..
                 } = self.states.pop().unwrap();
 
                 let (finit, ff1nal) = self.init_from_regex(&**fst);
@@ -201,19 +202,19 @@ impl Automaton {
         }
 
         for s in st.iter() {
-            match self.states.get(*s).trans {
+            match self.states[*s].trans {
                 (svec::Many(ref v), dst) =>
                     for &ch in v.states.iter() {
                         ret.get_mut(ch as uint).push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
                     let data = &set.data;
-                    let mut chk = *data.get(0);
+                    let mut chk = data[0];
                     let mut i = 0;
 
                     for ch in range(0, 256u) {
                         if (ch & 0x3F) == 0 {
-                            chk = *data.get(i);
+                            chk = data[i];
                             i += 1;
                         }
 
@@ -249,7 +250,7 @@ impl Automaton {
             stack.push(*s);
             ret.insert(*s);
 
-            let action = self.states.get(*s).action;
+            let action = self.states[*s].action;
             if action > ret.action {
                 ret.action = action;
             }
@@ -257,14 +258,14 @@ impl Automaton {
 
         while !stack.is_empty() {
             let st = stack.pop().unwrap();
-            let st = &self.states.get(st);
+            let st = &self.states[st];
 
             match st.etrans {
                 One(i) if !ret.contains(i) => {
                     ret.insert(i);
                     stack.push(i);
 
-                    let action = self.states.get(i).action;
+                    let action = self.states[i].action;
                     if action > ret.action {
                         ret.action = action;
                     }
@@ -275,7 +276,7 @@ impl Automaton {
                         ret.insert(i);
                         stack.push(i);
 
-                        let action = self.states.get(i).action;
+                        let action = self.states[i].action;
                         if action > ret.action {
                             ret.action = action;
                         }
@@ -285,7 +286,7 @@ impl Automaton {
                         ret.insert(j);
                         stack.push(j);
 
-                        let action = self.states.get(j).action;
+                        let action = self.states[j].action;
                         if action > ret.action {
                             ret.action = action;
                         }
@@ -298,7 +299,7 @@ impl Automaton {
                             ret.insert(*i);
                             stack.push(*i);
 
-                            let action = self.states.get(*i).action;
+                            let action = self.states[*i].action;
                             if action > ret.action {
                                 ret.action = action;
                             }
@@ -327,7 +328,7 @@ impl Automaton {
 
         // outputs f1nal states as doublecircle-shaped nodes
         for st in range(0, self.states.len()) {
-            if self.states.get(st).action != 0 {
+            if self.states[st].action != 0 {
                 write!(out, "{:u} ", st);
             }
         }
@@ -336,10 +337,10 @@ impl Automaton {
         writeln!(out, "\tnode [shape=circle];");
 
         for st in range(0, self.states.len()) {
-            match self.states.get(st).trans {
+            match self.states[st].trans {
                 (svec::One(ch), dst) => {
                     let mut esc = String::new();
-                    (ch as char).escape_default(|c| { esc.push_char(c); });
+                    (ch as char).escape_default(|c| { esc.push(c); });
                     writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                         st, dst, esc);
                 }
@@ -347,7 +348,7 @@ impl Automaton {
                 (svec::Many(ref vec), dst) => {
                     for &ch in vec.states.iter() {
                         let mut esc = String::new();
-                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        (ch as char).escape_default(|c| { esc.push(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                             st, dst, esc);
                     }
@@ -356,7 +357,7 @@ impl Automaton {
                 (svec::ManyBut(ref vec), dst) => {
                     for &ch in vec.states.iter() {
                         let mut esc = String::new();
-                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        (ch as char).escape_default(|c| { esc.push(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"!{:s}\"];",
                             st, dst, esc);
                     }
@@ -371,7 +372,7 @@ impl Automaton {
             }
 
             
-            match self.states.get(st).etrans {
+            match self.states[st].etrans {
                 One(s) => {
                     writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, s);
                 }
