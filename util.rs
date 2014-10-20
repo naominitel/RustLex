@@ -50,7 +50,7 @@ impl BinSet {
     #[inline(always)]
     pub fn contains(&self, state: uint) -> bool {
         let chunk = state >> 6;
-        let idx = (state & 0x3F) as u64;
+        let idx = (state & 0x3F);
         ((self.data.get(chunk) >> idx) & 1) != 0
     }
 
@@ -97,15 +97,15 @@ impl BinSetu8 {
 
     #[inline(always)]
     pub fn contains(&self, state: u8) -> bool {
-        let chunk = (state >> 6u8) as uint;
-        let idx = (state & 0x3Fu8) as u64;
+        let chunk = (state >> 6u) as uint;
+        let idx = (state & 0x3Fu8) as uint;
         ((self.data.get(chunk) >> idx) & 1) != 0
     }
 
     #[inline(always)]
     pub fn insert(&mut self, state: u8) {
-        let chunk = (state >> 6u8) as uint;
-        let idx = state & 0x3Fu8;
+        let chunk = (state >> 6u) as uint;
+        let idx = (state & 0x3Fu8) as uint;
         let chunk = self.data.get_mut(chunk);
         *chunk = *chunk | (1 << idx);
         self.states.push(state);

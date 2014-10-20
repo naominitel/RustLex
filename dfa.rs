@@ -1,6 +1,7 @@
 use nfa;
 use std::result;
 use util;
+use syntax::ast;
 
 /* deterministic finite automaton */
 
@@ -109,7 +110,7 @@ impl Automaton {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: uint, conditions: &mut [(u32, uint)])
+    pub fn minimize(&self, acts_count: uint, conditions: &mut [(ast::Name, uint)])
         -> result::Result<Box<Automaton>, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
@@ -148,7 +149,7 @@ impl Automaton {
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
-                    for i in range(0, 255) {
+                    for i in range(0, 255u) {
                         let (s1, s2) = (
                             self.states.get(st).trans[i as uint],
                             self.states.get(s).trans[i as uint]
@@ -255,7 +256,7 @@ impl Automaton {
     // outs the automaton as a dot file for graphviz
     // for debugging purposes
     pub fn todot(&self, out: &mut Writer) {
-        writeln!(out, "digraph automata \\{");
+        writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
         writeln!(out, "\tnode [shape=box]; {:u};", self.initial);
@@ -276,7 +277,7 @@ impl Automaton {
 
         let mut i = 0u;
         for st in self.states.iter() {
-            for ch in range(0, 256) {
+            for ch in range(0, 256u) {
                 let ch = ch as u8;
                 match st.trans[ch as uint] {
                     0 => (),
@@ -292,6 +293,6 @@ impl Automaton {
             i += 1;
         }
 
-        writeln!(out, "\\}");
+        writeln!(out, "}}");
     }
 }

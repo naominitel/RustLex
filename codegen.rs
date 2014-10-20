@@ -1,7 +1,6 @@
 use lexer::Lexer;
 use lexer::Prop;
 use syntax::ast;
-use syntax::ast::P;
 use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
@@ -10,12 +9,13 @@ use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
 use syntax::parse::token;
+use syntax::ptr::P;
 use syntax::util::small_vector::SmallVector;
     
 // struct returned by the code generator
 // implements a trait containing method called by libsyntax
 // on macro expansion
-struct CodeGenerator {
+struct CodeGenerator<'a> {
     // we need this to report
     // errors when the macro is
     // not called correctly
@@ -23,21 +23,21 @@ struct CodeGenerator {
     span: Span,
 
     // items
-    items: Vec<@ast::Item>
+    items: Vec<P<ast::Item>>
 }
 
 
-impl MacResult for CodeGenerator {
-    fn make_items(&self) -> Option<SmallVector<@ast::Item>> {
+impl<'a> MacResult for CodeGenerator<'a> {
+    fn make_items(self:Box<CodeGenerator<'a>>) -> Option<SmallVector<P<ast::Item>>> {
         Some(SmallVector::many(self.items.clone()))
     }
 
-    fn make_stmt(&self) -> Option<@ast::Stmt> {
+    fn make_stmt(self:Box<CodeGenerator<'a>>) -> Option<P<ast::Stmt>> {
         self.handler.span_unimpl(self.span,
             "invoking rustlex on statement context is not implemented");
     }
 
-    fn make_expr(&self) -> Option<@ast::Expr> {
+    fn make_expr(self:Box<CodeGenerator<'a>>) -> Option<P<ast::Expr>> {
         self.handler.span_fatal(self.span,
             "rustlex! invoked on expression context");
     }
@@ -58,11 +58,11 @@ pub fn lexerField(sp: Span, name: ast::Ident, ty: P<ast::Ty>) -> ast::StructFiel
 
 
 #[inline(always)]
-pub fn lexerStruct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> @ast::Item {
+pub fn lexerStruct<'a>(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> P<ast::Item> {
     let mut fields = Vec::with_capacity(props.len() + 1);
 
-    for &(name, ty, _) in props.iter() {
-        fields.push(lexerField(sp, ast::Ident::new(name), ty));
+    for &(name, ref ty, _) in props.iter() {
+        fields.push(lexerField(sp, ast::Ident::new(name), ty.clone()));
     }
 
     fields.push(codemap::Spanned {
@@ -85,7 +85,7 @@ pub fn lexerStruct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> @ast::Item {
 }
 
 #[inline(always)]
-pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
+pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<P<ast::Item>> {
     vec!(
         (quote_item!(&*cx,
             static RUSTLEX_BUFSIZE: uint = 4096;
@@ -156,7 +156,7 @@ pub fn structs<'a>(cx: &mut ExtCtxt) -> Vec<@ast::Item> {
     )
 }
 
-pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
+pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator<'a>> {
     let mut items = Vec::new();
 
     // tables
@@ -233,14 +233,14 @@ pub fn codegen<'a>(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator
         span: sp,
         // FIXME:
         handler: diagnostic::mk_span_handler(
-            diagnostic::default_handler(diagnostic::Auto),
+            diagnostic::default_handler(diagnostic::Auto, None),
             CodeMap::new()
         ),
         items: items
     }
 }
 
-pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Expr {
+pub fn actionsMatch<'a>(acts: &[P<ast::Stmt>], cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
     let mut arms = Vec::with_capacity(acts.len());
     let mut i = 1u;
@@ -283,7 +283,8 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
     for act in acts.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
         let pat = cx.pat_lit(sp, pat_expr);
-        let block = cx.block(sp, vec!(yystr, *act), None);
+        let statements:Vec<P<ast::Stmt>> = vec!(yystr.clone(), act.clone());
+        let block = cx.block(sp, statements, None);
         let expr = quote_expr!(&*cx, $block);
         let arm = cx.arm(sp, vec!(pat), expr);
         arms.push(arm);
@@ -304,12 +305,12 @@ pub fn actionsMatch(acts: &[@ast::Stmt], cx: &mut ExtCtxt, sp: Span) -> @ast::Ex
     cx.expr_match(sp, match_expr, arms)
 }
 
-pub fn userLexerimpl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
-    actions_match: @ast::Expr) -> @ast::Item {
+pub fn userLexerimpl<'a>(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
+    actions_match: P<ast::Expr>) -> P<ast::Item> {
     let mut fields = Vec::with_capacity(props.len() + 1);
 
-    for &(name, _, expr) in props.iter() {
-        fields.push(cx.field_imm(sp, ast::Ident::new(name), expr));
+    for &(name, _, ref expr) in props.iter() {
+        fields.push(cx.field_imm(sp, ast::Ident::new(name), expr.clone()));
     }
 
     fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_internal_lexer")),
@@ -370,7 +371,7 @@ pub fn userLexerimpl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
     })).unwrap()
 }
 
-pub fn lexerImpl(cx: &mut ExtCtxt) -> @ast::Item {
+pub fn lexerImpl<'a>(cx: &mut ExtCtxt) -> P<ast::Item> {
     // the actual simulation code
     (quote_item!(cx,
     impl RustLexLexer {

@@ -3,13 +3,13 @@ use nfa;
 use regex::Regex;
 use syntax::ast::Expr;
 use syntax::ast::Name;
-use syntax::ast::P;
 use syntax::ast::Stmt;
 use syntax::ast::Ty;
 use syntax::codemap::Span;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
+use syntax::ptr::P;
 
 // a rule is a regular expression pattern associated
 // to a Rust code snippet
@@ -17,7 +17,7 @@ use syntax::ext::build::AstBuilder;
 // this is what libsyntax gives usn
 pub struct Rule {
     pub pattern: Box<Regex>,
-    pub action: @Stmt
+    pub action: P<Stmt>
 }
 
 // a condition is a "state" of the lexical analyser
@@ -29,7 +29,7 @@ pub struct Condition {
     pub rules: Vec<Rule>
 }
 
-pub type Prop = (Name, P<Ty>, @Expr);
+pub type Prop = (Name, P<Ty>, P<Expr>);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
@@ -50,7 +50,7 @@ pub struct LexerDef {
 //   this condition in auto.
 pub struct Lexer {
     auto: Box<dfa::Automaton>,
-    actions: Vec<@Stmt>,
+    actions: Vec<P<Stmt>>,
     conditions: Vec<(Name, uint)>,
     properties: Vec<Prop>
 }
@@ -74,14 +74,14 @@ impl Lexer {
         let mut dfas = dfa::Automaton::new();
         let mut conds = Vec::new();
 
-        let box LexerDef { properties, conditions } = def;
-        for cond in conditions.move_iter() {
+ //       let LexerDef { ref properties, ref conditions } = *def;
+        for cond in def.conditions.iter() {
             let mut asts = Vec::with_capacity(cond.rules.len());
             let name = cond.name;
 
-            for Rule { pattern, action } in cond.rules.move_iter() {
-                asts.push((pattern, id));
-                acts.push(action);
+            for &Rule { ref pattern, ref action } in cond.rules.iter() {
+                asts.push((pattern.clone(), id));
+                acts.push(action.clone());
                 id += 1;
             }
 
@@ -90,7 +90,7 @@ impl Lexer {
             println!("building...");
             let nfa = nfa::build_nfa(asts);
             println!("determinizing...");
-            dfas.determinize(nfa);
+            dfas.determinize(&*nfa);
 
             // store the initial ID of auto for this condition
             conds.push((name, dfas.initial));
@@ -102,7 +102,7 @@ impl Lexer {
                 auto: dfa,
                 actions: acts,
                 conditions: conds,
-                properties: properties
+                properties: def.properties.clone()
             },
             Err(dfa::UnreachablePattern(pat)) => {
                 cx.span_note(acts.get(pat).span, "make sure it is not included \
@@ -119,8 +119,8 @@ impl Lexer {
     //   make the writing of actions easier
     // - the Lexer struct and its impl block that implements the actual
     // code of simulation of the automaton
-    pub fn genCode(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult> {
+    pub fn genCode<'a>(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult+'a> {
         println!("generating code...");
-        codegen::codegen(self, cx, sp) as Box<MacResult>
+        codegen::codegen(self, cx, sp) as Box<MacResult+'a>
     }
 }

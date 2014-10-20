@@ -2,7 +2,7 @@
 // invoked by Rustc when compiling a lexer file
 // uses libsyntax to parse what Rustc gives us
 
-use collections::hashmap::HashMap;
+use std::collections::hashmap::HashMap;
 use lexer::Condition;
 use lexer::LexerDef;
 use lexer::Rule;
@@ -12,17 +12,18 @@ use std::rc::Rc;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
-use syntax::ast::P;
 use syntax::ast::Ty;
+use syntax::parse;
 use syntax::parse::token;
 use syntax::parse::token::keywords;
 use syntax::parse::parser::Parser;
+use syntax::ptr::P;
 use util::BinSetu8;
 
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
-fn getProperties(parser: &mut Parser) -> Vec<(Name, P<Ty>, @Expr)> {
+fn getProperties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
     let mut ret = Vec::new();
     let prop = token::intern("property");
     loop {
@@ -56,19 +57,21 @@ fn getCharClass(parser: &mut Parser) -> Box<BinSetu8> {
                 break
             }
 
-            token::LIT_CHAR(ch) => {
-                let mut ch = ch as u8;
+            token::LIT_CHAR(i) => {
+                let mut ch = parse::char_lit(i.as_str()).val0() as u8;
 
                 match parser.token {
                     token::BINOP(token::MINUS) => {
                         // a char seq, e.g. 'a' - 'Z'
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
-                            token::LIT_CHAR(ch) => ch as u8,
+                            token::LIT_CHAR(ch) =>
+                                parse::char_lit(ch.as_str()).val0() as u8,
                             _ => parser.unexpected()
                         };
                         if ch >= ch2 {
-                            parser.span_fatal(parser.last_span,
+                            let last_span = parser.last_span;
+                            parser.span_fatal(last_span,
                                 "invalid character range")
                         }
                         while ch <= ch2 {
@@ -82,10 +85,11 @@ fn getCharClass(parser: &mut Parser) -> Box<BinSetu8> {
             }
 
             token::LIT_STR(id) => {
-                let s = token::get_name(id.name);
+                let s = token::get_name(id);
                 let s = s.get();
                 if s.len() == 0 {
-                    parser.span_fatal(parser.last_span,
+                    let last_span = parser.last_span;
+                    parser.span_fatal(last_span,
                         "bad string constant in character class")
                 }
                 for b in s.bytes() {
@@ -121,17 +125,23 @@ fn getConst(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 box regex::Class(getCharClass(parser))
             }
         }
-        token::LIT_CHAR(ch) => box regex::Char(ch as u8),
-        token::LIT_STR(id) => match regex::string(token::get_name(id.name).get()) {
+        token::LIT_CHAR(ch) => box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
+        token::LIT_STR(id) => match regex::string(token::get_name(id).get()) {
             Some(reg) => reg,
-            None => parser.span_fatal(parser.last_span,
+            None => {
+                let last_span = parser.last_span;
+                parser.span_fatal(last_span,
                 "bad string constant in regular expression")
+            }
         },
         token::IDENT(id, _) => match env.find_copy(&id.name) {
             Some(value) => box regex::Var(value),
-            None => parser.span_fatal(parser.last_span,
+            None => {
+                let last_span = parser.last_span;
+                parser.span_fatal(last_span,
                 format!("unknown identifier: {:s}", 
                     token::get_name(id.name).get()).as_slice())
+            }
         },
         _ => parser.unexpected_last(&tok)
     }
@@ -201,7 +211,7 @@ fn getPattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
 fn getDefinitions(parser: &mut Parser) -> Box<Env> {
     let mut ret = box HashMap::new();
     while parser.eat_keyword(keywords::Let) {
-        let (id, pat) = getPattern(parser, ret);
+        let (id, pat) = getPattern(parser, &*ret);
         ret.insert(id.name, Rc::new(*pat));
     }
     ret
@@ -303,6 +313,6 @@ fn getConditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
 pub fn parse(parser: &mut Parser) -> LexerDef {
     let props = getProperties(parser);
     let defs = getDefinitions(parser);
-    let conditions = getConditions(parser, defs);
+    let conditions = getConditions(parser, &*defs);
     LexerDef { properties: props, conditions: conditions }
 }
