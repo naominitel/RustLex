@@ -4,3 +4,5 @@
 *.dll
 *.rlib
 /build/
+Cargo.lock
+target

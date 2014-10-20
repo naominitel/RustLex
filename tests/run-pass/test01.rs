@@ -1,5 +1,5 @@
 #![feature(phase)]
-#[phase(syntax)]
+#[phase(plugin)]
 extern crate rustlex;
 
 #[path="../common/strreader.rs"]
