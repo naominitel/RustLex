@@ -1,5 +1,4 @@
 #![feature(phase)]
-#![feature(trace_macros)]
 #[phase(plugin)]
 extern crate rustlex;
 

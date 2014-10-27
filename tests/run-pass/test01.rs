@@ -51,7 +51,7 @@ fn main() {
     let inp = strreader::reader(str) as Box<::std::io::Reader>;
     let mut lexer = Lexer::new(inp);
     let mut iter = expected.iter();
-    for tok in lexer {
+    for tok in *lexer {
         assert!(iter.next().unwrap() == &tok);
     }
     assert!(iter.next() == None);
