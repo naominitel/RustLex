@@ -281,11 +281,6 @@ pub fn actions_match(acts: &[P<ast::Stmt>], cx: &mut ExtCtxt, sp: Span) -> P<ast
             let RustLexPos { buf: nbuf, off: noff } = self._internal_lexer.pos;
             if buf == nbuf {
                 let slice:&[u8] = self._internal_lexer.inp[buf].slice(off, noff).clone();
-/*
-                let mut buf = String::with_capacity(slice.len());
-                unsafe { buf.as_mut_vec().extend(slice.iter()); }
-                buf
-*/
                 String::from_utf8(slice.to_vec()).unwrap()
             } else {
                 // create a strbuf with the right capacity
