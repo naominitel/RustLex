@@ -218,7 +218,7 @@ impl Automaton {
         let mut action = 0;
         for gr in subgroups.iter() {
             if gr.is_empty() {
-                println!("action {:u} unreachable", action);
+                error!("action {:u} unreachable", action);
                 return Err(UnreachablePattern(action));
             }
             let (_, st) = gr[0];

@@ -12,6 +12,7 @@ use syntax::parse::token;
 use syntax::ptr::P;
 use syntax::util::small_vector::SmallVector;
 
+
 // struct returned by the code generator
 // implements a trait containing method called by libsyntax
 // on macro expansion
@@ -255,7 +256,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let acts_match = actions_match(lex.actions.as_slice(), cx, sp);
     items.extend(user_lexer_impl(cx, sp, lex.properties.as_slice(), acts_match).into_iter());
     items.push(lexer_impl(cx));
-    println!("done!");
+    info!("done!");
 
     box CodeGenerator {
         span: sp,

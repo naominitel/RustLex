@@ -87,16 +87,16 @@ impl Lexer {
 
             // build a NFA for this condition, determinize it
             // and add it to the built DFA
-            println!("building...");
+            info!("building...");
             let nfa = nfa::build_nfa(asts);
-            println!("determinizing...");
+            info!("determinizing...");
             dfas.determinize(&*nfa);
 
             // store the initial ID of auto for this condition
             conds.push((name, dfas.initial));
         }
 
-        println!("minimizing...");
+        info!("minimizing...");
         match dfas.minimize(acts.len(), conds.as_mut_slice()) {
             Ok(dfa) => Lexer {
                 auto: dfa,
@@ -120,7 +120,7 @@ impl Lexer {
     // - the Lexer struct and its impl block that implements the actual
     // code of simulation of the automaton
     pub fn gen_code<'a>(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult+'a> {
-        println!("generating code...");
+        info!("generating code...");
         codegen::codegen(self, cx, sp) as Box<MacResult+'a>
     }
 }

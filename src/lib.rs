@@ -1,5 +1,5 @@
 #![feature(plugin_registrar)]
-//#![feature(macro_rules)]
+#![feature(phase)]
 #![feature(quote)]
 #![feature(macro_rules)]
 
@@ -9,6 +9,8 @@
 extern crate collections;
 extern crate syntax;
 extern crate rustc;
+
+#[phase(plugin, link)] extern crate log;
 
 use syntax::ast::TokenTree;
 use syntax::codemap::Span;
