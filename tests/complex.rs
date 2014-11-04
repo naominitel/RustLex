@@ -42,7 +42,9 @@ rustlex!(
     FLTCONST => return Some(TokFloat)
     ID => return Some(TokId)
     STR => println!("Saw a str: {:s}", _yystr)
+/*
     . => println!("Unknown token: {:s}", _yystr)
+*/
 )
 
 #[test]

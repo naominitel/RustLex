@@ -67,11 +67,11 @@ impl Automaton {
 
                 match dst {
                     // in any case, add a transition
-                    Some(i) => self.states.get_mut(next).trans[ch as uint] = i,
+                    Some(i) => self.states[next].trans[ch as uint] = i,
                     None => {
                         // create a new DFA state for this set
                         let st = self.create_state(clos.action(), Some(clos));
-                        self.states.get_mut(next).trans[ch as uint] = st;
+                        self.states[next].trans[ch as uint] = st;
                         unmarked.push(st);
                     }
                 }
@@ -170,14 +170,14 @@ impl Automaton {
                 // if there is no subgroup for this group, reuse the
                 // same index
                 if subgroups[group].is_empty() {
-                    subgroups.get_mut(group).push((group, s));
+                    subgroups[group].push((group, s));
                     new_groups.push(group);
                 } else {
                     // create a new subgroup with a new index
                     // take this state as a representing state
                     let subgroup = subgroups.len();
                     subgroups.push(vec!());
-                    subgroups.get_mut(group).push((subgroup, s));
+                    subgroups[group].push((subgroup, s));
                     new_groups.push(subgroup);
                     modified = true;
                 }
@@ -225,7 +225,7 @@ impl Automaton {
 
             let st = &self.states[st];
             let state = ret.create_state(st.action, None);
-            let state = &mut ret.states.get_mut(state);
+            let state = &mut ret.states[state];
 
             // adjust transitions
             // the new state transitions to the representing state of the group

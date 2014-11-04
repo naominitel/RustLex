@@ -59,10 +59,10 @@ pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
     for (reg, act) in regexs.into_iter() {
         let (init, f1nal) = ret.init_from_regex(&*reg);
         etrans.push(init);
-        ret.states.get_mut(f1nal).action = act;
+        ret.states[f1nal].action = act;
     }
 
-    ret.states.get_mut(ini).etrans = More(etrans);
+    ret.states[ini].etrans = More(etrans);
     ret.initial = ini;
     ret
 }
@@ -87,7 +87,7 @@ impl Automaton {
 
     #[inline(always)]
     fn setnonf1nal(&mut self, state: uint) {
-        self.states.get_mut(state).action = 0;
+        self.states[state].action = 0;
     }
 
     // the construction is implemented recursively. Each call builds a
@@ -110,11 +110,11 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 // new initial state e-transitions to old init states
-                self.states.get_mut(new_init).etrans = Two(linit, rinit);
+                self.states[new_init].etrans = Two(linit, rinit);
 
                 // old f1nal states e-transition to new f1nal state
-                self.states.get_mut(lf1nal).etrans = One(new_f1nal);
-                self.states.get_mut(rf1nal).etrans = One(new_f1nal);
+                self.states[lf1nal].etrans = One(new_f1nal);
+                self.states[rf1nal].etrans = One(new_f1nal);
 
                 (new_init, new_f1nal)
             }
@@ -131,8 +131,8 @@ impl Automaton {
 
                 let (finit, ff1nal) = self.init_from_regex(&**fst);
                 self.setnonf1nal(ff1nal);
-                self.states.get_mut(ff1nal).etrans = etrans;
-                self.states.get_mut(ff1nal).trans = trans;
+                self.states[ff1nal].etrans = etrans;
+                self.states[ff1nal].trans = trans;
 
                 (finit, sf1nal)
             }
@@ -143,8 +143,8 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 self.setnonf1nal(f1nal);
-                self.states.get_mut(new_init).etrans = Two(new_f1nal, init);
-                self.states.get_mut(f1nal).etrans = One(new_f1nal);
+                self.states[new_init].etrans = Two(new_f1nal, init);
+                self.states[f1nal].etrans = One(new_f1nal);
 
                 (new_init, new_f1nal)
             }
@@ -155,8 +155,8 @@ impl Automaton {
                 let new_init = self.create_state();
 
                 self.setnonf1nal(f1nal);
-                self.states.get_mut(new_init).etrans = Two(new_f1nal, init);
-                self.states.get_mut(f1nal).etrans = Two(new_f1nal, init);
+                self.states[new_init].etrans = Two(new_f1nal, init);
+                self.states[f1nal].etrans = Two(new_f1nal, init);
 
                 (new_init, new_f1nal)
             }
@@ -164,14 +164,14 @@ impl Automaton {
             &regex::Class(ref vec) => {
                 let f1nal = self.create_state();
                 let init = self.create_state();
-                self.states.get_mut(init).trans = (svec::Many(vec.clone()), f1nal);
+                self.states[init].trans = (svec::Many(vec.clone()), f1nal);
                 (init, f1nal)
             }
 
             &regex::NotClass(ref set) => {
                 let f1nal = self.create_state();
                 let init = self.create_state();
-                self.states.get_mut(init).trans = (svec::ManyBut(set.clone()), f1nal);
+                self.states[init].trans = (svec::ManyBut(set.clone()), f1nal);
                 (init, f1nal)
             }
 
@@ -182,14 +182,14 @@ impl Automaton {
             &regex::Char(ch) => {
                 let f1nal = self.create_state();
                 let init = self.create_state();
-                self.states.get_mut(init).trans = (svec::One(ch), f1nal);
+                self.states[init].trans = (svec::One(ch), f1nal);
                 (init, f1nal)
             }
 
             &regex::Any => {
                 let f1nal = self.create_state();
                 let init = self.create_state();
-                self.states.get_mut(init).trans = (svec::Any, f1nal);
+                self.states[init].trans = (svec::Any, f1nal);
                 (init, f1nal)
             }
         }
@@ -205,7 +205,7 @@ impl Automaton {
             match self.states[*s].trans {
                 (svec::Many(ref v), dst) =>
                     for &ch in v.states.iter() {
-                        ret.get_mut(ch as uint).push(dst)
+                        ret[ch as uint].push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
                     let data = &set.data;
@@ -219,7 +219,7 @@ impl Automaton {
                         }
 
                         if (chk & 1) == 0 {
-                            ret.get_mut(ch).push(dst);
+                            ret[ch].push(dst);
                         }
 
                         chk = chk >> 1;
@@ -227,9 +227,9 @@ impl Automaton {
                 }
                 (svec::Any, dst) =>
                     for ch in range(0, 256u) {
-                        ret.get_mut(ch).push(dst);
+                        ret[ch].push(dst);
                     },
-                (svec::One(ch), dst) => ret.get_mut(ch as uint).push(dst),
+                (svec::One(ch), dst) => ret[ch as uint].push(dst),
                 (svec::Zero, _) => ()
             }
         }

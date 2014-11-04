@@ -58,8 +58,7 @@ impl BinSet {
     pub fn insert(&mut self, state: uint) {
         let chunk = state >> 6;
         let idx = state & 0x3F;
-        let chunk = self.data.get_mut(chunk);
-        *chunk = *chunk | (1 << idx);
+        self.data[chunk] |= 1 << idx;
         self.states.push(state);
     }
 
@@ -107,8 +106,7 @@ impl BinSetu8 {
     pub fn insert(&mut self, state: u8) {
         let chunk = (state >> 6u) as uint;
         let idx = (state & 0x3Fu8) as uint;
-        let chunk = self.data.get_mut(chunk);
-        *chunk = *chunk | (1 << idx);
+        self.data[chunk] |= 1 << idx;
         self.states.push(state);
     }
 

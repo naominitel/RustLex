@@ -2,7 +2,7 @@
 // invoked by Rustc when compiling a lexer file
 // uses libsyntax to parse what Rustc gives us
 
-use std::collections::hashmap::HashMap;
+use std::collections::hash_map::HashMap;
 use lexer::Condition;
 use lexer::LexerDef;
 use lexer::Rule;
@@ -28,14 +28,14 @@ fn get_properties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
     let prop = token::intern("property");
     loop {
         match parser.token {
-            token::IDENT(id, _) if id.name == prop => {
+            token::Ident(id, _) if id.name == prop => {
                 parser.bump();
                 let name = parser.parse_ident();
-                parser.expect(&token::COLON);
+                parser.expect(&token::Colon);
                 let ty = parser.parse_ty(true);
-                parser.expect(&token::EQ);
+                parser.expect(&token::Eq);
                 let expr = parser.parse_expr();
-                parser.expect(&token::SEMI);
+                parser.expect(&token::Semi);
                 ret.push((name.name, ty, expr));
             }
 
@@ -53,19 +53,19 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
     loop {
         let tok = parser.bump_and_get();
         match tok {
-            token::RBRACKET => {
+            token::CloseDelim(token::Bracket) => {
                 break
             }
 
-            token::LIT_CHAR(i) => {
+            token::LitChar(i) => {
                 let mut ch = parse::char_lit(i.as_str()).val0() as u8;
 
                 match parser.token {
-                    token::BINOP(token::MINUS) => {
+                    token::BinOp(token::Minus) => {
                         // a char seq, e.g. 'a' - 'Z'
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
-                            token::LIT_CHAR(ch) =>
+                            token::LitChar(ch) =>
                                 parse::char_lit(ch.as_str()).val0() as u8,
                             _ => parser.unexpected()
                         };
@@ -84,7 +84,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 }
             }
 
-            token::LIT_STR(id) => {
+            token::LitStr(id) => {
                 let s = token::get_name(id);
                 let s = s.get();
                 if s.len() == 0 {
@@ -116,17 +116,18 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
-        token::DOT => box regex::Any,
-        token::LPAREN => get_regex(parser, &token::RPAREN, env),
-        token::LBRACKET => {
-            if parser.eat(&token::BINOP(token::CARET)) {
+        token::Dot => box regex::Any,
+        token::OpenDelim(token::Paren) => get_regex(parser,
+            &token::CloseDelim(token::Paren), env),
+        token::OpenDelim(token::Bracket) => {
+            if parser.eat(&token::BinOp(token::Caret)) {
                 box regex::NotClass(get_char_class(parser))
             } else {
                 box regex::Class(get_char_class(parser))
             }
         }
-        token::LIT_CHAR(ch) => box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
-        token::LIT_STR(id) => match regex::string(token::get_name(id).get()) {
+        token::LitChar(ch) => box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
+        token::LitStr(id) => match regex::string(token::get_name(id).get()) {
             Some(reg) => reg,
             None => {
                 let last_span = parser.last_span;
@@ -134,7 +135,7 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 "bad string constant in regular expression")
             }
         },
-        token::IDENT(id, _) => match env.find_copy(&id.name) {
+        token::Ident(id, _) => match env.find_copy(&id.name) {
             Some(value) => box regex::Var(value),
             None => {
                 let last_span = parser.last_span;
@@ -151,11 +152,11 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
 // the * operator has lower precedence that concatenation
 fn get_closure(parser: &mut Parser, env: &Env) -> Box<Regex> {
     let reg = get_const(parser, env);
-    if parser.eat(&token::BINOP(token::STAR)) { box regex::Closure(reg) }
-    else if parser.eat(&token::BINOP(token::PLUS)) {
+    if parser.eat(&token::BinOp(token::Star)) { box regex::Closure(reg) }
+    else if parser.eat(&token::BinOp(token::Plus)) {
         box regex::Cat(reg.clone(), box regex::Closure(reg))
     }
-    else if parser.eat(&token::BINOP(token::PERCENT)) { box regex::Maybe(reg) }
+    else if parser.eat(&token::BinOp(token::Percent)) { box regex::Maybe(reg) }
     else { reg }
 }
 
@@ -166,7 +167,7 @@ fn get_closure(parser: &mut Parser, env: &Env) -> Box<Regex> {
 fn get_concat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
     let opl = get_closure(parser, env);
     if &parser.token == end ||
-        parser.token == token::BINOP(token::OR) {
+        parser.token == token::BinOp(token::Or) {
         opl
     } else {
         let opr = get_concat(parser, end, env);
@@ -186,7 +187,7 @@ fn get_regex(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
     let left = get_concat(parser, end, env);
     if parser.eat(end) { left }
     else {
-        parser.expect(&token::BINOP(token::OR));
+        parser.expect(&token::BinOp(token::Or));
         let right = get_regex(parser, end, env);
         box regex::Or(left, right)
     }
@@ -197,8 +198,8 @@ fn get_regex(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
 // being a non-keyword identifier and reg a literal constant
 fn get_pattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
     let name = parser.parse_ident();
-    parser.expect(&token::EQ);
-    let reg = get_regex(parser, &token::SEMI, env);
+    parser.expect(&token::Eq);
+    let reg = get_regex(parser, &token::Semi, env);
     (name, reg)
 }
                         
@@ -223,11 +224,11 @@ fn get_definitions(parser: &mut Parser) -> Box<Env> {
 // indicates the end of the condition body
 fn get_condition(parser: &mut Parser, env: &Env) -> Vec<Rule> {
     let mut ret = Vec::new();
-    while !parser.eat(&token::RBRACE) {
-        let reg = get_regex(parser, &token::FAT_ARROW, env);
+    while !parser.eat(&token::CloseDelim(token::Brace)) {
+        let reg = get_regex(parser, &token::FatArrow, env);
         let stmt = parser.parse_stmt(Vec::new());
         // optionnal comma for disambiguation
-        parser.eat(&token::COMMA);
+        parser.eat(&token::Comma);
         ret.push(Rule { pattern: reg, action: stmt });
     }
     ret
@@ -251,19 +252,19 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
     cond_names.insert(initial.name, 0);
     ret.push(initial);
 
-    while parser.token != token::EOF {
+    while parser.token != token::Eof {
         // here we can expect either a condition declaration
         // or simply a rule, which is then implicitly in the
         // "Initial" condition
         // in any case, we expect an ident or a regex first
         match parser.token {
-            token::IDENT(id, _) => {
+            token::Ident(id, _) => {
                 // this may be either the start of a regexp followed
                 // by an arrow and an action or a condition followed
                 // by an opening brace.
                 // if we see an opening brace '{' here then it's a
                 // condition whose name is the id we just parsed
-                if parser.look_ahead(1, |tok| tok == &token::LBRACE) {
+                if parser.look_ahead(1, |tok| tok == &token::OpenDelim(token::Brace)) {
                     // ok it's a condition
                     // bump 2 times: the identifier and the lbrace
                     parser.bump();
@@ -275,7 +276,7 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                     // have we seen this condition before ?
                     match cond_names.find_copy(&id.name) {
                         Some(i) => {
-                            ret.get_mut(i).rules.extend(rules.into_iter());
+                            ret[i].rules.extend(rules.into_iter());
                             continue
                         }
 
@@ -288,18 +289,18 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                 } else {
                     // ok, it's not a condition, so it's a rule of the form
                     // regex => action, with regex beginning by an identifier
-                    let reg = get_regex(parser, &token::FAT_ARROW, env);
+                    let reg = get_regex(parser, &token::FatArrow, env);
                     let stmt = parser.parse_stmt(Vec::new());
-                    ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
+                    ret[0].rules.push(Rule { pattern: reg, action: stmt });
                 }
             }
 
             _ => {
                 // it's not an ident, but it may still be the
                 // beginning of a regular expression
-                let reg = get_regex(parser, &token::FAT_ARROW, env);
+                let reg = get_regex(parser, &token::FatArrow, env);
                 let stmt = parser.parse_stmt(Vec::new());
-                ret.get_mut(0).rules.push(Rule { pattern: reg, action: stmt });
+                ret[0].rules.push(Rule { pattern: reg, action: stmt });
             }
         }
     }
