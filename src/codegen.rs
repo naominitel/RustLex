@@ -418,7 +418,7 @@ pub fn lexer_impl(cx: &mut ExtCtxt) -> P<ast::Item> {
             let &RustLexBuffer {
                 ref mut d,
                 ref mut valid
-            } = self.inp.get_mut(self.pos.buf);
+            } = self.inp.index_mut(&self.pos.buf);
             *valid = true;
             self.stream.push(RUSTLEX_BUFSIZE, d);
             self.pos.off = 0;
@@ -438,8 +438,8 @@ pub fn lexer_impl(cx: &mut ExtCtxt) -> P<ast::Item> {
                     // than a couple of buffers
                     let unused_buffers_count = self.tok.buf;
                     for i in range(0, unused_buffers_count) {
-                        self.inp.get_mut(i).valid = false;
-                        self.inp.get_mut(i).d.truncate(0);
+                        self.inp.index_mut(&i).valid = false;
+                        self.inp.index_mut(&i).d.truncate(0);
                         self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                     }
                     self.tok.buf -= unused_buffers_count;
