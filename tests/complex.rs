@@ -2,7 +2,7 @@
 #[phase(plugin)]
 extern crate rustlex;
 
-#[path="../common/strreader.rs"]
+#[path="common/strreader.rs"]
 mod strreader;
 
 // The Token type is returned by the lexer function on
@@ -42,10 +42,13 @@ rustlex!(
     FLTCONST => return Some(TokFloat)
     ID => return Some(TokId)
     STR => println!("Saw a str: {:s}", _yystr)
+/*
     . => println!("Unknown token: {:s}", _yystr)
+*/
 )
 
-fn main() {
+#[test]
+fn test_complex() {
     let expected = vec!(TokId, TokId, TokId, TokFloat, TokId, TokInt, TokId, TokInt, TokId);
     let str = "foo bar baz 0.10 ii212\"aa\\\"aa\\.a\"\"a\" 0x121u baz 123foo ";
     let inp = strreader::reader(str) as Box<::std::io::Reader>;

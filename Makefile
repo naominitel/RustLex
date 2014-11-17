@@ -8,6 +8,7 @@ CTEST_FLAGS = \
 	--rustc-path $(shell which rustc) \
 	--build-base build/tests \
 	--aux-base . \
+	--android-cross-path . \
 	--stage-id 0
 
 all: $(BUILD) rustlex
@@ -19,10 +20,10 @@ $(BUILD)/tests:
 	mkdir -pv $(BUILD)/tests/
 
 rustlex:
-	$(RUSTC) rustlex.rs --out-dir $(BUILD)/
+	$(RUSTC) src/lib.rs --out-dir $(BUILD)/
 
 check: all build/tests build/compiletest compile-fail run-pass
-	
+
 build/compiletest:
 	$(RUSTC) tests/compiletest/compiletest.rs --out-dir $(BUILD)/
 

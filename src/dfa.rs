@@ -1,6 +1,7 @@
 use nfa;
 use std::result;
 use util;
+use syntax::ast;
 
 /* deterministic finite automaton */
 
@@ -42,10 +43,10 @@ impl Automaton {
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
-            let moves = nfa.moves(&*self.states.get(next).states);
+            let moves = nfa.moves(&*self.states[next].states);
 
             let mut ch = 0u8;
-            'g: for dst in moves.move_iter() {
+            'g: for dst in moves.into_iter() {
                 let clos = nfa.eclosure(dst.as_slice());
 
                 if clos.is_empty() {
@@ -66,11 +67,11 @@ impl Automaton {
 
                 match dst {
                     // in any case, add a transition
-                    Some(i) => self.states.get_mut(next).trans[ch as uint] = i,
+                    Some(i) => self.states[next].trans[ch as uint] = i,
                     None => {
                         // create a new DFA state for this set
                         let st = self.create_state(clos.action(), Some(clos));
-                        self.states.get_mut(next).trans[ch as uint] = st;
+                        self.states[next].trans[ch as uint] = st;
                         unmarked.push(st);
                     }
                 }
@@ -109,7 +110,7 @@ impl Automaton {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: uint, conditions: &mut [(u32, uint)])
+    pub fn minimize(&self, acts_count: uint, conditions: &mut [(ast::Name, uint)])
         -> result::Result<Box<Automaton>, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
@@ -129,7 +130,7 @@ impl Automaton {
         let mut subgroups: Vec<Vec<(uint, uint)>> = Vec::from_elem(acts_count, vec!());
         loop {
             // subgroups become groups, reinitialize subgroups
-            for i in subgroups.mut_iter() {
+            for i in subgroups.iter_mut() {
                 *i = vec!();
             }
 
@@ -138,22 +139,22 @@ impl Automaton {
             let mut modified = false;
 
             'g: for s in range(0, groups.len()) {
-                let &group = groups.get(s);
+                let group = groups[s];
 
                 // check if we have a subgroup of the group of s
                 // that matches its transitions. st is the representing
                 // state of the subgroup subgr
-                'h: for &(subgr, st) in subgroups.get(group).iter() {
+                'h: for &(subgr, st) in subgroups[group].iter() {
                     // if st and s are similar, s goes to subgr
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
-                    for i in range(0, 255) {
+                    for i in range(0, 255u) {
                         let (s1, s2) = (
-                            self.states.get(st).trans[i as uint],
-                            self.states.get(s).trans[i as uint]
+                            self.states[st].trans[i as uint],
+                            self.states[s].trans[i as uint]
                         );
-                        if groups.get(s1) != groups.get(s2) {
+                        if groups[s1] != groups[s2] {
                             continue 'h;
                         }
                     }
@@ -168,15 +169,15 @@ impl Automaton {
                 // no subgroup, create one
                 // if there is no subgroup for this group, reuse the
                 // same index
-                if subgroups.get(group).is_empty() {
-                    subgroups.get_mut(group).push((group, s));
+                if subgroups[group].is_empty() {
+                    subgroups[group].push((group, s));
                     new_groups.push(group);
                 } else {
                     // create a new subgroup with a new index
                     // take this state as a representing state
                     let subgroup = subgroups.len();
                     subgroups.push(vec!());
-                    subgroups.get_mut(group).push((subgroup, s));
+                    subgroups[group].push((subgroup, s));
                     new_groups.push(subgroup);
                     modified = true;
                 }
@@ -194,7 +195,7 @@ impl Automaton {
         // construct the minimal DFA
         let mut ret = box Automaton {
             states: Vec::with_capacity(subgroups.len()),
-            initial: groups.get(self.initial) + 1
+            initial: groups[self.initial] + 1
         };
 
         // create the dead state
@@ -217,14 +218,14 @@ impl Automaton {
         let mut action = 0;
         for gr in subgroups.iter() {
             if gr.is_empty() {
-                println!("action {:u} unreachable", action);
+                error!("action {:u} unreachable", action);
                 return Err(UnreachablePattern(action));
             }
-            let &(_, st) = gr.get(0);
+            let (_, st) = gr[0];
 
-            let st = &self.states.get(st);
+            let st = &self.states[st];
             let state = ret.create_state(st.action, None);
-            let state = &mut ret.states.get_mut(state);
+            let state = &mut ret.states[state];
 
             // adjust transitions
             // the new state transitions to the representing state of the group
@@ -233,7 +234,7 @@ impl Automaton {
             for t in st.trans.iter() {
                 match *t {
                     0 => state.trans[ch] = 0,
-                    _ => state.trans[ch] = groups.get(*t) + 1
+                    _ => state.trans[ch] = groups[*t] + 1
                 }
                 ch += 1
             };
@@ -242,9 +243,9 @@ impl Automaton {
         }
 
         // update the initial state numbers of each condition
-        for c in conditions.mut_iter() {
+        for c in conditions.iter_mut() {
             let (n, st) = *c;
-            *c = (n, groups.get(st) + 1);
+            *c = (n, groups[st] + 1);
         }
 
         Ok(ret)
@@ -255,7 +256,7 @@ impl Automaton {
     // outs the automaton as a dot file for graphviz
     // for debugging purposes
     pub fn todot(&self, out: &mut Writer) {
-        writeln!(out, "digraph automata \\{");
+        writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
         writeln!(out, "\tnode [shape=box]; {:u};", self.initial);
@@ -276,13 +277,13 @@ impl Automaton {
 
         let mut i = 0u;
         for st in self.states.iter() {
-            for ch in range(0, 256) {
+            for ch in range(0, 256u) {
                 let ch = ch as u8;
                 match st.trans[ch as uint] {
                     0 => (),
                     dst => {
                         let mut esc = String::new();
-                        (ch as char).escape_default(|c| { esc.push_char(c); });
+                        (ch as char).escape_default(|c| { esc.push(c); });
                         writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
                             i, dst, esc);
                     }
@@ -292,6 +293,6 @@ impl Automaton {
             i += 1;
         }
 
-        writeln!(out, "\\}");
+        writeln!(out, "}}");
     }
 }

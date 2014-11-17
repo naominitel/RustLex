@@ -1,0 +1,9 @@
+[package]
+
+name = "rustlex"
+version = "0.0.1"
+authors = ["Naomi Nitel <naominitel@gmail.com", "Mathieu Poumeyrol <kali@zoy.org>"]
+
+[lib]
+name = "rustlex"
+crate-type = ["dylib"]
