@@ -1,28 +1,25 @@
 #![feature(phase)]
-#![feature(trace_macros)]
-#[phase(plugin)]
-extern crate rustlex;
+#[phase(plugin)] extern crate rustlex;
+#[phase(plugin, link)] extern crate log;
 
-#[path="common/strreader.rs"]
-mod strreader;
+use std::io::BufReader;
 
-#[deriving(PartialEq)]
+#[deriving(PartialEq,Show)]
 enum Token {
-    TokA
+    TokA(String)
 }
 
 rustlex!(
     let A = 'a';
 
-    A => return Some(TokA)
+    A => |yy| { Some(TokA ( yy )) }
 )
 
 #[test]
 fn test_simple() {
-    let expected = vec!(TokA, TokA);
+    let expected = vec!(TokA(String::from_str("a")), TokA(String::from_str("a")));
     let str = "aa";
-
-    let inp = strreader::reader(str) as Box<::std::io::Reader>;
+    let inp = BufReader::new(str.as_bytes());
     let mut lexer = Lexer::new(inp);
     let mut iter = expected.iter();
     for tok in *lexer {

@@ -3,7 +3,6 @@ use nfa;
 use regex::Regex;
 use syntax::ast::Expr;
 use syntax::ast::Name;
-use syntax::ast::Stmt;
 use syntax::ast::Ty;
 use syntax::codemap::Span;
 use syntax::ext::base::ExtCtxt;
@@ -17,7 +16,7 @@ use syntax::ptr::P;
 // this is what libsyntax gives usn
 pub struct Rule {
     pub pattern: Box<Regex>,
-    pub action: P<Stmt>
+    pub action: P<Expr>
 }
 
 // a condition is a "state" of the lexical analyser
@@ -50,7 +49,7 @@ pub struct LexerDef {
 //   this condition in auto.
 pub struct Lexer {
     auto: Box<dfa::Automaton>,
-    actions: Vec<P<Stmt>>,
+    actions: Vec<P<Expr>>,
     conditions: Vec<(Name, uint)>,
     properties: Vec<Prop>
 }
@@ -65,8 +64,7 @@ impl Lexer {
         // all the actions in the lexical analyser
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
-        let dummy_stmt = cx.stmt_expr(dummy_expr);
-        let mut acts = vec!(dummy_stmt);
+        let mut acts = vec!(dummy_expr);
         let mut id = 1u;
 
         // now build the automatas and record

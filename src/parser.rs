@@ -173,7 +173,7 @@ fn get_concat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> 
         let opr = get_concat(parser, end, env);
         box regex::Cat(opl, opr)
     }
-} 
+}
 
 // entry point of the regex parser, parses an or-expression
 // tries to parse a concat expression as the left operation, and then
@@ -202,7 +202,7 @@ fn get_pattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
     let reg = get_regex(parser, &token::Semi, env);
     (name, reg)
 }
-                        
+
 // a definition is of the form let pattern; see the function above
 // for a description of pattern. This function just tries to parse
 // as much definitions as possible, until it sees something that
@@ -225,11 +225,11 @@ fn get_definitions(parser: &mut Parser) -> Box<Env> {
 fn get_condition(parser: &mut Parser, env: &Env) -> Vec<Rule> {
     let mut ret = Vec::new();
     while !parser.eat(&token::CloseDelim(token::Brace)) {
-        let reg = get_regex(parser, &token::FatArrow, env);
-        let stmt = parser.parse_stmt(Vec::new());
+        let pattern = get_regex(parser, &token::FatArrow, env);
+        let action = parser.parse_expr();
         // optionnal comma for disambiguation
         parser.eat(&token::Comma);
-        ret.push(Rule { pattern: reg, action: stmt });
+        ret.push(Rule { pattern:pattern, action:action });
     }
     ret
 }
@@ -290,8 +290,8 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                     // ok, it's not a condition, so it's a rule of the form
                     // regex => action, with regex beginning by an identifier
                     let reg = get_regex(parser, &token::FatArrow, env);
-                    let stmt = parser.parse_stmt(Vec::new());
-                    ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                    let expr = parser.parse_expr();
+                    ret[0].rules.push(Rule { pattern: reg, action: expr });
                 }
             }
 
@@ -299,8 +299,8 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                 // it's not an ident, but it may still be the
                 // beginning of a regular expression
                 let reg = get_regex(parser, &token::FatArrow, env);
-                let stmt = parser.parse_stmt(Vec::new());
-                ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                let expr = parser.parse_expr();
+                ret[0].rules.push(Rule { pattern: reg, action: expr });
             }
         }
     }

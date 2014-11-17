@@ -1,18 +1,18 @@
 #![feature(phase)]
-#[phase(plugin)]
-extern crate rustlex;
+#[phase(plugin)] extern crate rustlex;
+#[phase(plugin, link)] extern crate log;
 
-#[path="common/strreader.rs"]
-mod strreader;
+use std::io::BufReader;
 
 // The Token type is returned by the lexer function on
 // each call and must be declared in the same module
 // as where the rustlex! macro is invoked
-#[deriving(PartialEq)]
+#[deriving(PartialEq,Show)]
 enum Token {
-    TokInt,
-    TokFloat,
-    TokId
+    TokInt(u32),
+    TokFloat(f32),
+    TokId(String),
+    TokString(String)
 }
 
 rustlex!(
@@ -38,24 +38,37 @@ rustlex!(
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
-    INTCONST => return Some(TokInt)
-    FLTCONST => return Some(TokFloat)
-    ID => return Some(TokId)
-    STR => println!("Saw a str: {:s}", _yystr)
-/*
-    . => println!("Unknown token: {:s}", _yystr)
-*/
+    INT => |yy:String| Some(TokInt(from_str::<u32>(yy.as_slice()).unwrap()))
+    HEX => |yy:String| {
+        let s = yy.as_slice();
+        let i:u32 = ::std::num::from_str_radix(s.slice(2, s.len()-1), 16).unwrap();
+        Some(TokInt(i))
+    }
+    FLTCONST => |yy:String| Some(TokFloat(from_str::<f32>(yy.as_slice()).unwrap()))
+    ID => |yy| Some(TokId(yy))
+    STR => |yy:String| { Some(TokString(yy)) }
 )
 
 #[test]
 fn test_complex() {
-    let expected = vec!(TokId, TokId, TokId, TokFloat, TokId, TokInt, TokId, TokInt, TokId);
-    let str = "foo bar baz 0.10 ii212\"aa\\\"aa\\.a\"\"a\" 0x121u baz 123foo ";
-    let inp = strreader::reader(str) as Box<::std::io::Reader>;
+    let expected = vec!(
+        TokId(String::from_str("foo")),
+        TokId(String::from_str("bar")),
+        TokId(String::from_str("baz")),
+        TokFloat(0.1),
+        TokInt(212 as u32),
+        TokString(String::from_str("\"a\"")),
+        TokInt(0x121u as u32),
+        TokId(String::from_str("baz")),
+        TokInt(123),
+        TokId(String::from_str("foo")));
+    let str = "foo bar baz 0.10 212 \"a\" 0x121u baz 123foo ";
+    let inp = BufReader::new(str.as_bytes());
     let mut lexer = Lexer::new(inp);
     let mut iter = expected.iter();
     for tok in *lexer {
-        assert!(iter.next().unwrap() == &tok);
+        let expect = iter.next().unwrap();
+        assert!(expect == &tok);
     }
     assert!(iter.next() == None);
 }

@@ -75,15 +75,6 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, props: &[Prop]) -> P<ast::Item> 
                 ast::Public
             ),
             id: -1 as u32,
-            //ty: cx.ty_ident(sp, ast::Ident::new(token::intern("RustLexLexer"))),
-/*
-            ty: cx.ty_path(
-                    cx.path_ident(sp, ast::Ident::new(token::intern("RustLexLexer"))),
-                    Some(owned_slice::OwnedSlice::from_vec(vec!(
-                        cx.typarambound(cx.path_ident(sp, ast::Ident::new(token::intern("'b"))))
-                    )))
-            ),
-*/
             ty: quote_ty!(&*cx, RustLexLexer<R>),
             attrs: vec!()
         }
@@ -269,67 +260,27 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     }
 }
 
-pub fn actions_match(acts: &[P<ast::Stmt>], cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
+pub fn actions_match(acts: &[P<ast::Expr>], cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
     let mut arms = Vec::with_capacity(acts.len());
     let mut i = 1u;
 
-    let yystr = quote_stmt!(&*cx,
-        // FIXME: unused variable in generated code
-        // a syntax reg as var => like OCamllex would be better
-        let _yystr = {
-            let RustLexPos { buf, off } = self._internal_lexer.tok;
-            let RustLexPos { buf: nbuf, off: noff } = self._internal_lexer.pos;
-            if buf == nbuf {
-                let slice:&[u8] = self._internal_lexer.inp[buf].slice(off, noff).clone();
-                String::from_utf8(slice.to_vec()).unwrap()
-            } else {
-                // create a strbuf with the right capacity
-                //let mut capacity = self._internal_lexer.inp[buf].len() - off;
-/*
-                for i in range(buf + 1, nbuf) {
-                    capacity += self._internal_lexer.inp[i].len();
-                }
-                capacity += noff;
-*/
-                //let mut yystr = String::with_capacity(capacity);
-                let mut yystr:Vec<u8> = vec!();
-
-                // unsafely pushes all bytes onto the buf
-
-                let iter = self._internal_lexer.inp.slice(buf + 1, nbuf).clone().iter();
-                let iter = iter.flat_map(|v| v.as_slice().iter());
-                let iter = iter.chain(self._internal_lexer.inp[nbuf]
-                    .slice(0, noff).iter());
-
-                let mut iter = self._internal_lexer.inp[buf].slice_from(off).clone()
-                    .iter().chain(iter);
-                for j in iter {
-                    yystr.push(*j)
-                }
-                String::from_utf8(yystr).unwrap()
-            }
-        };
-    );
-
     for act in acts.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
         let pat = cx.pat_lit(sp, pat_expr);
-        let statements:Vec<P<ast::Stmt>> = vec!(yystr.clone(), act.clone());
-        let block = cx.block(sp, statements, None);
-        let expr = quote_expr!(&*cx, $block);
-        let arm = cx.arm(sp, vec!(pat), expr);
+        let arm = cx.arm(sp, vec!(pat), act.clone());
         arms.push(arm);
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, {
+    let def_act = quote_expr!(&*cx, |String| {
         // default action is printing on stdout
         self._internal_lexer.pos = self._internal_lexer.tok;
         self._internal_lexer.pos.off += 1;
         let b: &u8 = self._internal_lexer.inp[
             self._internal_lexer.tok.buf].get(self._internal_lexer.tok.off);
         print!("{:c}", *b as char);
+        None
     });
 
     let def_pat = cx.pat_wild(sp);
@@ -384,13 +335,13 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
                     };
 
                     let new_st = TRANSITION_TABLE[current_st][i as uint];
-                    let action = ACCEPTING[new_st];
+                    let action_id = ACCEPTING[new_st];
 
-                    if action != 0 {
+                    if action_id != 0 {
                         self._internal_lexer.advance = self._internal_lexer.pos;
 
                         // final state
-                        last_matching_action = action;
+                        last_matching_action = action_id;
                     }
 
                     current_st = new_st;
@@ -399,11 +350,46 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, props: &[Prop],
                 // go back to last matching state in the input
                 self._internal_lexer.pos = self._internal_lexer.advance;
 
-                // execute action corresponding to found state
-                $actions_match
+                // a syntax reg as var => like OCamllex would be better
+                let yystr = {
+                    let RustLexPos { buf, off } = self._internal_lexer.tok;
+                    let RustLexPos { buf: nbuf, off: noff } = self._internal_lexer.pos;
+                    if buf == nbuf {
+                        let slice:&[u8] = self._internal_lexer.inp[buf].slice(off, noff);
+                        String::from_utf8(slice.to_vec()).unwrap()
+                    } else {
+                        // create a strbuf
+                        let mut yystr:Vec<u8> = vec!();
 
+                        // unsafely pushes all bytes onto the buf
+                        let iter = self._internal_lexer.inp.slice(buf + 1, nbuf).iter();
+                        let iter = iter.flat_map(|v| v.as_slice().iter());
+                        let iter = iter.chain(self._internal_lexer.inp[nbuf]
+                            .slice(0, noff).iter());
+
+                        let mut iter = self._internal_lexer.inp[buf].slice_from(off)
+                            .iter().chain(iter);
+                        for j in iter {
+                            yystr.push(*j)
+                        }
+                        String::from_utf8(yystr).unwrap()
+                    }
+                };
+
+                // execute action corresponding to found state
+                let action:(|String| -> Option<Token>) = $actions_match ;
+
+                debug!("Calling action for `{}'", yystr);
+                let action_result = action(yystr);
+                debug!("action returned {}", action_result);
+
+                match action_result {
+                    Some(token) => return Some(token),
+                    None => ()
+                };
                 // if the user code did not return, continue
             }
+            None
         }
     }
     )).unwrap();
