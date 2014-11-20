@@ -57,7 +57,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 break
             }
 
-            token::LitChar(i) => {
+            token::Literal(token::Lit::Char(i), _) => {
                 let mut ch = parse::char_lit(i.as_str()).val0() as u8;
 
                 match parser.token {
@@ -65,7 +65,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                         // a char seq, e.g. 'a' - 'Z'
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
-                            token::LitChar(ch) =>
+                            token::Literal(token::Lit::Char(ch), _) =>
                                 parse::char_lit(ch.as_str()).val0() as u8,
                             _ => parser.unexpected()
                         };
@@ -84,7 +84,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 }
             }
 
-            token::LitStr(id) => {
+            token::Literal(token::Lit::Str_(id),_) => {
                 let s = token::get_name(id);
                 let s = s.get();
                 if s.len() == 0 {
@@ -126,8 +126,10 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 box regex::Class(get_char_class(parser))
             }
         }
-        token::LitChar(ch) => box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
-        token::LitStr(id) => match regex::string(token::get_name(id).get()) {
+        token::Literal(token::Lit::Char(ch), _) =>
+            box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
+        token::Literal(token::Lit::Str_(id), _) =>
+                match regex::string(token::get_name(id).get()) {
             Some(reg) => reg,
             None => {
                 let last_span = parser.last_span;
@@ -140,7 +142,7 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
             None => {
                 let last_span = parser.last_span;
                 parser.span_fatal(last_span,
-                format!("unknown identifier: {:s}", 
+                format!("unknown identifier: {}", 
                     token::get_name(id.name).get()).as_slice())
             }
         },

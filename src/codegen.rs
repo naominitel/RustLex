@@ -279,7 +279,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], cx: &mut ExtCtxt, sp: Span) -> P<ast
         self._internal_lexer.pos.off += 1;
         let b: &u8 = self._internal_lexer.inp[
             self._internal_lexer.tok.buf].get(self._internal_lexer.tok.off);
-        print!("{:c}", *b as char);
+        print!("{}", *b as char);
         None
     });
 

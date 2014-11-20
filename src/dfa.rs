@@ -3,6 +3,8 @@ use std::result;
 use util;
 use syntax::ast;
 
+pub use self::MinimizationError::*;
+
 /* deterministic finite automaton */
 
 struct State {
@@ -218,7 +220,7 @@ impl Automaton {
         let mut action = 0;
         for gr in subgroups.iter() {
             if gr.is_empty() {
-                error!("action {:u} unreachable", action);
+                error!("action {} unreachable", action);
                 return Err(UnreachablePattern(action));
             }
             let (_, st) = gr[0];
@@ -259,14 +261,14 @@ impl Automaton {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
-        writeln!(out, "\tnode [shape=box]; {:u};", self.initial);
+        writeln!(out, "\tnode [shape=box]; {};", self.initial);
 
         let mut i = 0u;
 
         // outputs final states as doublecircle-shaped nodes
         for st in self.states.iter() {
             if st.action != 0 {
-                writeln!(out, "\tnode [shape=doublecircle, label=\"{:u} ({:u})\"] {:u};",
+                writeln!(out, "\tnode [shape=doublecircle, label=\"{} ({})\"] {};",
                     i, st.action, i);
             }
 
@@ -284,7 +286,7 @@ impl Automaton {
                     dst => {
                         let mut esc = String::new();
                         (ch as char).escape_default(|c| { esc.push(c); });
-                        writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                        writeln!(out, "\t{} -> {} [label=\"{}\"];",
                             i, dst, esc);
                     }
                 }

@@ -4,6 +4,8 @@
 
 use std::io::BufReader;
 
+use self::Token::TokA;
+
 #[deriving(PartialEq,Show)]
 enum Token {
     TokA(String)

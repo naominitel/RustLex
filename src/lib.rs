@@ -2,6 +2,7 @@
 #![feature(phase)]
 #![feature(quote)]
 #![feature(macro_rules)]
+#![feature(globs)]
 
 #![crate_type="dylib"]
 #![crate_name="rustlex"]
