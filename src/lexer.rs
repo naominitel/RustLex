@@ -2,6 +2,7 @@ use dfa;
 use nfa;
 use regex::Regex;
 use syntax::ast::Expr;
+use syntax::ast::Ident;
 use syntax::ast::Name;
 use syntax::ast::Ty;
 use syntax::codemap::Span;
@@ -32,6 +33,7 @@ pub type Prop = (Name, P<Ty>, P<Expr>);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
+    pub ident:      Ident,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
 }
@@ -48,6 +50,7 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
+    ident:Ident,
     auto: Box<dfa::Automaton>,
     actions: Vec<P<Expr>>,
     conditions: Vec<(Name, uint)>,
@@ -97,6 +100,7 @@ impl Lexer {
         info!("minimizing...");
         match dfas.minimize(acts.len(), conds.as_mut_slice()) {
             Ok(dfa) => Lexer {
+                ident: def.ident,
                 auto: dfa,
                 actions: acts,
                 conditions: conds,

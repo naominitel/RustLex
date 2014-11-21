@@ -13,10 +13,10 @@ extern crate rustc;
 
 #[phase(plugin, link)] extern crate log;
 
-use syntax::ast::TokenTree;
+use syntax::ast::{Ident,TokenTree};
 use syntax::codemap::Span;
-use syntax::ext::base::ExtCtxt;
-use syntax::ext::base::MacResult;
+use syntax::ext::base::{ExtCtxt,MacResult,IdentTT};
+use syntax::parse::token;
 use rustc::plugin::Registry;
 
 mod dfa;
@@ -25,35 +25,26 @@ mod nfa;
 mod parser;
 mod regex;
 mod util;
+pub mod rt;
 
 // the main rustlex macro
-pub fn rustlex(cx: &mut ExtCtxt, sp: Span, args: &[TokenTree])
-        -> Box<MacResult+'static> {
+pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTree>)
+        -> Box<MacResult+'a> {
     let mut p = ::syntax::parse::new_parser_from_tts(
         cx.parse_sess,
         cx.cfg.clone(),
-        args.to_vec()
+        args
     );
 
-    let def = box parser::parse(&mut p);
+    let def = box parser::parse(ident, &mut p);
     let lex = lexer::Lexer::new(def, cx);
     lex.gen_code(cx, sp)
 }
 
 #[plugin_registrar]
 pub fn plugin_registrar(reg: &mut Registry) {
-    reg.register_macro("rustlex", rustlex);
-}
-
-/*
-#[macro_registrar]
-pub fn registrar(register: |Name, base::SyntaxExtension|) {
-    register(
-        syntax::parse::token::intern("rustlex"),
-        base::NormalTT(box base::TTMacroExpander {
-            expander: rustlex,
-            span: None
-        }, None)
+    reg.register_syntax_extension(
+        token::intern("rustlex"),
+        IdentTT(box rustlex, None)
     );
 }
-*/

@@ -137,7 +137,7 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 "bad string constant in regular expression")
             }
         },
-        token::Ident(id, _) => match env.find_copy(&id.name) {
+        token::Ident(id, _) => match env.get(&id.name).cloned() {
             Some(value) => box regex::Var(value),
             None => {
                 let last_span = parser.last_span;
@@ -276,7 +276,7 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                     let rules = get_condition(parser, env);
 
                     // have we seen this condition before ?
-                    match cond_names.find_copy(&id.name) {
+                    match cond_names.get(&id.name).cloned() {
                         Some(i) => {
                             ret[i].rules.extend(rules.into_iter());
                             continue
@@ -313,9 +313,9 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
 // runs the parsing of the full analyser description
 // - first gets an environment of the regular expression definitions
 // - then parses the definitions of the rules and the conditions
-pub fn parse(parser: &mut Parser) -> LexerDef {
+pub fn parse(ident:Ident, parser: &mut Parser) -> LexerDef {
     let props = get_properties(parser);
     let defs = get_definitions(parser);
     let conditions = get_conditions(parser, &*defs);
-    LexerDef { properties: props, conditions: conditions }
+    LexerDef { ident:ident, properties: props, conditions: conditions }
 }

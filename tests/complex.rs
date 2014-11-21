@@ -1,6 +1,6 @@
 #![feature(phase)]
 #![feature(globs)]
-#[phase(plugin)] extern crate rustlex;
+#[phase(plugin, link)] extern crate rustlex;
 #[phase(plugin, link)] extern crate log;
 
 use std::io::BufReader;
@@ -17,7 +17,7 @@ enum Token {
     TokString(String)
 }
 
-rustlex!(
+rustlex! ComplexLexer {
     // define some regular expressions that matches
     // float and int constants allowed in C
     // definitions are of the form
@@ -49,7 +49,7 @@ rustlex!(
     FLTCONST => |yy:String| Some(TokFloat(from_str::<f32>(yy.as_slice()).unwrap()))
     ID => |yy| Some(TokId(yy))
     STR => |yy:String| { Some(TokString(yy)) }
-)
+}
 
 #[test]
 fn test_complex() {
@@ -66,7 +66,7 @@ fn test_complex() {
         TokId(String::from_str("foo")));
     let str = "foo bar baz 0.10 212 \"a\" 0x121u baz 123foo ";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = Lexer::new(inp);
+    let mut lexer = ComplexLexer::new(inp);
     let mut iter = expected.iter();
     for tok in *lexer {
         let expect = iter.next().unwrap();

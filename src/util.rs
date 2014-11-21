@@ -3,7 +3,6 @@ use std::slice;
 // A vector type optimized for cases where the size is almost always 0 or 1
 // Code inspired my Mozilla's SmallVector for libsyntax
 
-
 pub mod svec {
     use super::BinSetu8;
     pub use self::SVec::*;
