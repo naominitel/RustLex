@@ -57,7 +57,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 break
             }
 
-            token::LitChar(i) => {
+            token::Literal(token::Lit::Char(i), _) => {
                 let mut ch = parse::char_lit(i.as_str()).val0() as u8;
 
                 match parser.token {
@@ -65,7 +65,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                         // a char seq, e.g. 'a' - 'Z'
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
-                            token::LitChar(ch) =>
+                            token::Literal(token::Lit::Char(ch), _) =>
                                 parse::char_lit(ch.as_str()).val0() as u8,
                             _ => parser.unexpected()
                         };
@@ -84,7 +84,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 }
             }
 
-            token::LitStr(id) => {
+            token::Literal(token::Lit::Str_(id),_) => {
                 let s = token::get_name(id);
                 let s = s.get();
                 if s.len() == 0 {
@@ -126,8 +126,10 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 box regex::Class(get_char_class(parser))
             }
         }
-        token::LitChar(ch) => box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
-        token::LitStr(id) => match regex::string(token::get_name(id).get()) {
+        token::Literal(token::Lit::Char(ch), _) =>
+            box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
+        token::Literal(token::Lit::Str_(id), _) =>
+                match regex::string(token::get_name(id).get()) {
             Some(reg) => reg,
             None => {
                 let last_span = parser.last_span;
@@ -135,12 +137,12 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
                 "bad string constant in regular expression")
             }
         },
-        token::Ident(id, _) => match env.find_copy(&id.name) {
+        token::Ident(id, _) => match env.get(&id.name).cloned() {
             Some(value) => box regex::Var(value),
             None => {
                 let last_span = parser.last_span;
                 parser.span_fatal(last_span,
-                format!("unknown identifier: {:s}", 
+                format!("unknown identifier: {}", 
                     token::get_name(id.name).get()).as_slice())
             }
         },
@@ -173,7 +175,7 @@ fn get_concat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> 
         let opr = get_concat(parser, end, env);
         box regex::Cat(opl, opr)
     }
-} 
+}
 
 // entry point of the regex parser, parses an or-expression
 // tries to parse a concat expression as the left operation, and then
@@ -202,7 +204,7 @@ fn get_pattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
     let reg = get_regex(parser, &token::Semi, env);
     (name, reg)
 }
-                        
+
 // a definition is of the form let pattern; see the function above
 // for a description of pattern. This function just tries to parse
 // as much definitions as possible, until it sees something that
@@ -225,11 +227,11 @@ fn get_definitions(parser: &mut Parser) -> Box<Env> {
 fn get_condition(parser: &mut Parser, env: &Env) -> Vec<Rule> {
     let mut ret = Vec::new();
     while !parser.eat(&token::CloseDelim(token::Brace)) {
-        let reg = get_regex(parser, &token::FatArrow, env);
-        let stmt = parser.parse_stmt(Vec::new());
+        let pattern = get_regex(parser, &token::FatArrow, env);
+        let action = parser.parse_expr();
         // optionnal comma for disambiguation
         parser.eat(&token::Comma);
-        ret.push(Rule { pattern: reg, action: stmt });
+        ret.push(Rule { pattern:pattern, action:action });
     }
     ret
 }
@@ -274,7 +276,7 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                     let rules = get_condition(parser, env);
 
                     // have we seen this condition before ?
-                    match cond_names.find_copy(&id.name) {
+                    match cond_names.get(&id.name).cloned() {
                         Some(i) => {
                             ret[i].rules.extend(rules.into_iter());
                             continue
@@ -290,8 +292,8 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                     // ok, it's not a condition, so it's a rule of the form
                     // regex => action, with regex beginning by an identifier
                     let reg = get_regex(parser, &token::FatArrow, env);
-                    let stmt = parser.parse_stmt(Vec::new());
-                    ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                    let expr = parser.parse_expr();
+                    ret[0].rules.push(Rule { pattern: reg, action: expr });
                 }
             }
 
@@ -299,8 +301,8 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
                 // it's not an ident, but it may still be the
                 // beginning of a regular expression
                 let reg = get_regex(parser, &token::FatArrow, env);
-                let stmt = parser.parse_stmt(Vec::new());
-                ret[0].rules.push(Rule { pattern: reg, action: stmt });
+                let expr = parser.parse_expr();
+                ret[0].rules.push(Rule { pattern: reg, action: expr });
             }
         }
     }
@@ -311,9 +313,9 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
 // runs the parsing of the full analyser description
 // - first gets an environment of the regular expression definitions
 // - then parses the definitions of the rules and the conditions
-pub fn parse(parser: &mut Parser) -> LexerDef {
+pub fn parse(ident:Ident, parser: &mut Parser) -> LexerDef {
     let props = get_properties(parser);
     let defs = get_definitions(parser);
     let conditions = get_conditions(parser, &*defs);
-    LexerDef { properties: props, conditions: conditions }
+    LexerDef { ident:ident, properties: props, conditions: conditions }
 }

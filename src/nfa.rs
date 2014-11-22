@@ -2,6 +2,8 @@ use regex;
 use util::BinSet;
 use util::svec;
 
+pub use self::Etrans::*;
+
 /* non-deterministic finite automaton */
 
 // dirty optimisation
@@ -322,14 +324,14 @@ impl Automaton {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
-        writeln!(out, "\tnode [shape=box]; {:u};", self.initial);
+        writeln!(out, "\tnode [shape=box]; {};", self.initial);
         writeln!(out, "\tnode [shape=doublecircle];");
         write!(out, "\t");
 
         // outputs f1nal states as doublecircle-shaped nodes
         for st in range(0, self.states.len()) {
             if self.states[st].action != 0 {
-                write!(out, "{:u} ", st);
+                write!(out, "{} ", st);
             }
         }
 
@@ -341,7 +343,7 @@ impl Automaton {
                 (svec::One(ch), dst) => {
                     let mut esc = String::new();
                     (ch as char).escape_default(|c| { esc.push(c); });
-                    writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                    writeln!(out, "\t{} -> {} [label=\"{}\"];",
                         st, dst, esc);
                 }
 
@@ -349,7 +351,7 @@ impl Automaton {
                     for &ch in vec.states.iter() {
                         let mut esc = String::new();
                         (ch as char).escape_default(|c| { esc.push(c); });
-                        writeln!(out, "\t{:u} -> {:u} [label=\"{:s}\"];",
+                        writeln!(out, "\t{} -> {} [label=\"{}\"];",
                             st, dst, esc);
                     }
                 }
@@ -358,13 +360,13 @@ impl Automaton {
                     for &ch in vec.states.iter() {
                         let mut esc = String::new();
                         (ch as char).escape_default(|c| { esc.push(c); });
-                        writeln!(out, "\t{:u} -> {:u} [label=\"!{:s}\"];",
+                        writeln!(out, "\t{} -> {} [label=\"!{}\"];",
                             st, dst, esc);
                     }
                 }
 
                 (svec::Any, dst) => {
-                    writeln!(out, "\t{:u} -> {:u} [label=\".\"];",
+                    writeln!(out, "\t{} -> {} [label=\".\"];",
                         st, dst);
                 }
 
@@ -374,15 +376,15 @@ impl Automaton {
             
             match self.states[st].etrans {
                 One(s) => {
-                    writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, s);
+                    writeln!(out, "\t{} -> {} [label=\"e\"];", st, s);
                 }
                 Two(s, t) => {
-                    writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, s);
-                    writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, t);
+                    writeln!(out, "\t{} -> {} [label=\"e\"];", st, s);
+                    writeln!(out, "\t{} -> {} [label=\"e\"];", st, t);
                 }
                 More(ref v) => {
                     for i in v.iter() {
-                        writeln!(out, "\t{:u} -> {:u} [label=\"e\"];", st, *i);
+                        writeln!(out, "\t{} -> {} [label=\"e\"];", st, *i);
                     }
                 }
                 _ => ()

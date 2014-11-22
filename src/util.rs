@@ -5,6 +5,7 @@ use std::slice;
 
 pub mod svec {
     use super::BinSetu8;
+    pub use self::SVec::*;
     pub enum SVec {
         Zero,
         One(u8),
