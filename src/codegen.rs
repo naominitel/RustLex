@@ -167,7 +167,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], cx: &mut ExtCtxt, sp: Span) -> P<ast
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, |s:String| {
+    let def_act = quote_expr!(&*cx, |_s:String| {
         // default action is printing on stdout
         self._input.pos = self._input.tok;
         self._input.pos.off += 1;
@@ -349,7 +349,6 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                 };
                 // if the user code did not return, continue
             }
-            None
         }
     }
     )).unwrap();

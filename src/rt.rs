@@ -59,7 +59,7 @@ impl<R: ::std::io::Reader> RustLexLexer<R> {
             ref mut valid
         } = self.inp.index_mut(&self.pos.buf);
         *valid = true;
-        self.stream.push(RUSTLEX_BUFSIZE, d);
+        let _not_interested = self.stream.push(RUSTLEX_BUFSIZE, d);
         self.pos.off = 0;
     }
 
