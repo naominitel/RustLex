@@ -40,15 +40,16 @@ rustlex! ComplexLexer {
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
-    INT => |yy:String| Some(TokInt(from_str::<u32>(yy.as_slice()).unwrap()))
-    HEX => |yy:String| {
-        let s = yy.as_slice();
+    INT => |lexer:&mut ComplexLexer<R>| Some(TokInt(from_str::<u32>(lexer.yystr().as_slice()).unwrap()))
+    HEX => |lexer:&mut ComplexLexer<R>| {
+        let s = lexer.yystr();
+        let s = s.as_slice();
         let i:u32 = ::std::num::from_str_radix(s.slice(2, s.len()-1), 16).unwrap();
         Some(TokInt(i))
     }
-    FLTCONST => |yy:String| Some(TokFloat(from_str::<f32>(yy.as_slice()).unwrap()))
-    ID => |yy| Some(TokId(yy))
-    STR => |yy:String| { Some(TokString(yy)) }
+    FLTCONST => |lexer:&mut ComplexLexer<R>| Some(TokFloat(from_str::<f32>(lexer.yystr().as_slice()).unwrap()))
+    ID => |lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
+    STR => |lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
 }
 
 #[test]

@@ -15,7 +15,7 @@ enum Token {
 
 rustlex! SimpleLexer {
     let A = 'a';
-    A => |yy| { Some(TokA ( yy )) }
+    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn test_simple() {
 
 rustlex! OtherLexer {
     let B = 'b';
-    B => |yy| { Some(TokB ( yy )) }
+    B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 
 #[test]

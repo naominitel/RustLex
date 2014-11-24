@@ -154,7 +154,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     }
 }
 
-pub fn actions_match(acts: &[P<ast::Expr>], cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
+pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
     let mut arms = Vec::with_capacity(acts.len());
     let mut i = 1u;
@@ -167,12 +167,12 @@ pub fn actions_match(acts: &[P<ast::Expr>], cx: &mut ExtCtxt, sp: Span) -> P<ast
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, |_s:String| {
+    let def_act = quote_expr!(&*cx, |lexer:&mut $ident<R>| {
         // default action is printing on stdout
-        self._input.pos = self._input.tok;
-        self._input.pos.off += 1;
-        let b: &u8 = self._input.inp[
-            self._input.tok.buf].get(self._input.tok.off);
+        lexer._input.pos = lexer._input.tok;
+        lexer._input.pos.off += 1;
+        let b: &u8 = lexer._input.inp[
+            lexer._input.tok.buf].get(lexer._input.tok.off);
         print!("{}", *b as char);
         None
     });
@@ -242,7 +242,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
 }
 
 pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Item>> {
-    let actions_match = actions_match(lex.actions.as_slice(), cx, sp);
+    let actions_match = actions_match(lex.actions.as_slice(), lex.ident, cx, sp);
     let mut fields = Vec::with_capacity(lex.properties.len() + 1);
 
     for &(name, _, ref expr) in lex.properties.iter() {
@@ -274,6 +274,31 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 */
         #[inline(always)] $follow_method
         #[inline(always)] $accepting_method
+
+        fn yystr(&mut self) -> String {
+            let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
+            let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
+            if buf == nbuf {
+                let slice:&[u8] = self._input.inp[buf].slice(off, noff);
+                String::from_utf8(slice.to_vec()).unwrap()
+            } else {
+                // create a strbuf
+                let mut yystr:Vec<u8> = vec!();
+
+                // unsafely pushes all bytes onto the buf
+                let iter = self._input.inp.slice(buf + 1, nbuf).iter();
+                let iter = iter.flat_map(|v| v.as_slice().iter());
+                let iter = iter.chain(self._input.inp[nbuf]
+                    .slice(0, noff).iter());
+
+                let mut iter = self._input.inp[buf].slice_from(off)
+                    .iter().chain(iter);
+                for j in iter {
+                    yystr.push(*j)
+                }
+                String::from_utf8(yystr).unwrap()
+            }
+        }
     }
     )).unwrap();
 
@@ -310,37 +335,8 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                 // go back to last matching state in the input
                 self._input.pos = self._input.advance;
 
-                // a syntax reg as var => like OCamllex would be better
-                let yystr = {
-                    let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
-                    let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
-                    if buf == nbuf {
-                        let slice:&[u8] = self._input.inp[buf].slice(off, noff);
-                        String::from_utf8(slice.to_vec()).unwrap()
-                    } else {
-                        // create a strbuf
-                        let mut yystr:Vec<u8> = vec!();
-
-                        // unsafely pushes all bytes onto the buf
-                        let iter = self._input.inp.slice(buf + 1, nbuf).iter();
-                        let iter = iter.flat_map(|v| v.as_slice().iter());
-                        let iter = iter.chain(self._input.inp[nbuf]
-                            .slice(0, noff).iter());
-
-                        let mut iter = self._input.inp[buf].slice_from(off)
-                            .iter().chain(iter);
-                        for j in iter {
-                            yystr.push(*j)
-                        }
-                        String::from_utf8(yystr).unwrap()
-                    }
-                };
-
                 // execute action corresponding to found state
-                let action:(|String| -> Option<Token>) = $actions_match ;
-
-                debug!("Calling action for `{}'", yystr);
-                let action_result = action(yystr);
+                let action_result = $actions_match(self) ;
                 debug!("action returned {}", action_result);
 
                 match action_result {
