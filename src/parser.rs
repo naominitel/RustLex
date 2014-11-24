@@ -23,6 +23,17 @@ use util::BinSetu8;
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
+fn get_tokens<'a>(parser: &mut Parser) -> Option<Ident> {
+    let tokens = token::intern("token");
+    match parser.token {
+        token::Ident(id, _) if id.name == tokens => {
+            parser.bump();
+            Some(parser.parse_ident())
+        }
+        _ => None
+    }
+}
+
 fn get_properties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
     let mut ret = Vec::new();
     let prop = token::intern("property");
@@ -314,8 +325,9 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
 // - first gets an environment of the regular expression definitions
 // - then parses the definitions of the rules and the conditions
 pub fn parse(ident:Ident, parser: &mut Parser) -> LexerDef {
+    let tokens = get_tokens(parser);
     let props = get_properties(parser);
     let defs = get_definitions(parser);
     let conditions = get_conditions(parser, &*defs);
-    LexerDef { ident:ident, properties: props, conditions: conditions }
+    LexerDef { ident:ident, tokens:tokens, properties: props, conditions: conditions }
 }

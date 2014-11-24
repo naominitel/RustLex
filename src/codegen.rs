@@ -302,9 +302,10 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     }
     )).unwrap();
 
+    let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
     let i2 = (quote_item!(cx,
-    impl <R: ::std::io::Reader> Iterator<Token> for $ident<R> {
-        fn next(&mut self) -> Option<Token> {
+    impl <R: ::std::io::Reader> Iterator<$tokens> for $ident<R> {
+        fn next(&mut self) -> Option<$tokens> {
             loop {
                 self._input.tok = self._input.pos;
                 self._input.advance = self._input.pos;

@@ -6,11 +6,11 @@
 use std::io::BufReader;
 
 use self::Token::*;
+use self::TokenB::*;
 
 #[deriving(PartialEq,Show)]
 enum Token {
     TokA(String),
-    TokB(String)
 }
 
 rustlex! SimpleLexer {
@@ -31,7 +31,13 @@ fn test_simple() {
     assert!(iter.next() == None);
 }
 
+#[deriving(PartialEq,Show)]
+enum TokenB {
+    TokB(String)
+}
+
 rustlex! OtherLexer {
+    token TokenB
     let B = 'b';
     B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
