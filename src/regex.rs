@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use util::BinSetu8;
 
-pub use self::Regex::*;
+pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any};
 
 #[deriving(Clone)]
 pub enum Regex {

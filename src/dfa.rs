@@ -3,7 +3,7 @@ use std::result;
 use util;
 use syntax::ast;
 
-pub use self::MinimizationError::*;
+pub use self::MinimizationError::UnreachablePattern;
 
 /* deterministic finite automaton */
 

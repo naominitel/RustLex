@@ -1,12 +1,11 @@
 #![feature(phase)]
-#![feature(globs)]
 #[phase(plugin, link)] extern crate rustlex;
 #[phase(plugin, link)] extern crate log;
 
 use std::io::BufReader;
 
-use self::Token::*;
-use self::TokenB::*;
+use self::Token::TokA;
+use self::TokenB::TokB;
 
 #[deriving(PartialEq,Show)]
 enum Token {

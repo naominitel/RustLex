@@ -2,7 +2,6 @@
 #![feature(phase)]
 #![feature(quote)]
 #![feature(macro_rules)]
-#![feature(globs)]
 
 #![crate_type="dylib"]
 #![crate_name="rustlex"]
@@ -13,9 +12,9 @@ extern crate rustc;
 
 #[phase(plugin, link)] extern crate log;
 
-use syntax::ast::{Ident,TokenTree};
+use syntax::ast::{Ident, TokenTree};
 use syntax::codemap::Span;
-use syntax::ext::base::{ExtCtxt,MacResult,IdentTT};
+use syntax::ext::base::{ExtCtxt, MacResult, IdentTT};
 use syntax::parse::token;
 use rustc::plugin::Registry;
 

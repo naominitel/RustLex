@@ -2,7 +2,7 @@ use regex;
 use util::BinSet;
 use util::svec;
 
-pub use self::Etrans::*;
+pub use self::Etrans::{No, One, Two, More};
 
 /* non-deterministic finite automaton */
 
@@ -373,7 +373,7 @@ impl Automaton {
                 _ => ()
             }
 
-            
+
             match self.states[st].etrans {
                 One(s) => {
                     writeln!(out, "\t{} -> {} [label=\"e\"];", st, s);
