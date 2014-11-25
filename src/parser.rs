@@ -28,7 +28,9 @@ fn get_tokens<'a>(parser: &mut Parser) -> Option<Ident> {
     match parser.token {
         token::Ident(id, _) if id.name == tokens => {
             parser.bump();
-            Some(parser.parse_ident())
+            let token = Some(parser.parse_ident());
+            parser.expect(&token::Semi);
+            token
         }
         _ => None
     }

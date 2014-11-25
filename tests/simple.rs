@@ -37,7 +37,7 @@ enum TokenB {
 }
 
 rustlex! OtherLexer {
-    token TokenB
+    token TokenB;
     let B = 'b';
     B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }

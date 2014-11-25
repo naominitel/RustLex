@@ -1,3 +1,3 @@
 [submodule "tests/compiletest"]
 	path = tests/compiletest
-	url = git@github.com:naominitel/rust-compiletest.git
+	url = https://github.com/naominitel/rust-compiletest.git
