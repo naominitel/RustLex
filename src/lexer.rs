@@ -33,6 +33,7 @@ pub type Prop = (Name, P<Ty>, P<Expr>);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
+    pub tokens:     Option<Ident>,
     pub ident:      Ident,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
@@ -50,6 +51,7 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
+    tokens:Option<Ident>,
     ident:Ident,
     auto: Box<dfa::Automaton>,
     actions: Vec<P<Expr>>,
@@ -100,6 +102,7 @@ impl Lexer {
         info!("minimizing...");
         match dfas.minimize(acts.len(), conds.as_mut_slice()) {
             Ok(dfa) => Lexer {
+                tokens: def.tokens,
                 ident: def.ident,
                 auto: dfa,
                 actions: acts,

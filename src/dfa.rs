@@ -285,7 +285,7 @@ impl Automaton {
                     0 => (),
                     dst => {
                         let mut esc = String::new();
-                        (ch as char).escape_default(|c| { esc.push(c); });
+                        esc.extend((ch as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"{}\"];",
                             i, dst, esc);
                     }
