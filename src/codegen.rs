@@ -121,20 +121,6 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
 pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let mut items = Vec::new();
 
-    // constants
-    // a constant per condition, whose value is the initial
-    // state of the DFA corresponding to that condition in
-    // the main big DFA
-
-/*
-    for &(cond, st) in lex.conditions.iter() {
-        let cond = ast::Ident::new(cond);
-        items.push(quote_item!(&*cx,
-            static $cond: uint = $st;
-        ).unwrap());
-    }
-*/
-
     items.push(lexer_struct(cx, sp, lex.ident, lex.properties.as_slice()));
 
     // functions of the Lexer and InputBuffer structs
@@ -260,20 +246,26 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let follow_method:P<Method> = simple_follow_method(cx, sp, lex);
     let accepting_method:P<Method> = simple_accepting_method(cx, sp, lex);
 
+    let conditions:Vec<P<Method>> = lex.conditions.iter().map(|&(cond,st)| {
+        let cond = ast::Ident::new(cond);
+        quote_method!(&*cx,
+            #[inline(always)]
+            #[allow(dead_code)]
+            #[allow(non_snake_case)]
+            fn $cond(&mut self) { self._state = $st; }
+        )
+    }).collect();
+
     let ident = lex.ident;
     let i1 = (quote_item!(cx,
     impl<R: ::std::io::Reader> $ident<R> {
         fn new(reader:R) -> Box<$ident<R>> {
             box $init_expr
         }
-/*
-        #[inline(always)]
-        fn begin(&mut self, initial_state: uint) {
-            self._state = initial_state;
-        }
-*/
+
         #[inline(always)] $follow_method
         #[inline(always)] $accepting_method
+        $conditions
 
         fn yystr(&mut self) -> String {
             let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
