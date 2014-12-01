@@ -3,98 +3,78 @@
 RustLex is a lexical analysers generator, i.e. a program that generate [lexical analysers](http://en.wikipedia.org/wiki/Lexical_analysis) for use in compiler from a description of the language using regular expressions. It is similar to the well-known [Lex](http://en.wikipedia.org/wiki/Lex_(software)) but is written in Rust and outputs Rust code as the analyser.
 It differs from Lex by using Rust's new [syntax extensions]() system as the interface for defining lexical analysers. The description of the analyser thus can be directly embedded into a Rust source file, and the generator code will be called by Rustc at the macro-expansion phase.
 
-#### Building
+#### Rustlex availibility and rust compatibility
 
-RustLex can be very easily compiled into a dynamically library that will be loaded by Rustc when expanding syntax extensions:
+Rustlex is available through cargo.
 
 ```
-rustc rustlex.rs
+[dependencies.rustlex]
+git = "https://github.com/naominitel/rustlex"
 ```
 
-#### Usage
+Rustlex using syntax extensions, it has to deal with rustc libsyntax. Libsyntax is more or less the compiler guts, and it has been explicitely excluded from the rust 1.0 roadmap. Bottom line is, rustlex inline syntax generation will not be usable with rust 1.0.
+
+When rust 1.0 will be out, we'll draft a procedure to statically generate lexer code. Compiling with `--pretty=expanded` already shows the generated code. Depending on what cargo will be able to do in 1.0, the worst case should be requiring a copy and paste of the lexer code to your project.
+
+#### Defining a lexer
 
 Defining a lexical analyser is done using the `rustlex!` syntax extension. To made this syntax extension available, you first need to tell Rustc to load the RustLex library by adding the following at the top of your crate:
 
 ```
 #![feature(phase)]
-#[phase(syntax)]
-extern crate rustlex;
+#[phase(plugin,link)] extern crate rustlex;
+#[phase(plugin,link)] extern crate log;
 ```
 
-You can then invoke the `rustlex!` macro anywhere. The macro will expand into several structures and functions describing the lexical analyser. Putting the macro invokation in a module will cause there structures and functions to be available inside this module. You can thus have several lexical analysers in the same crate provided they are in different modules to avoid naming conflicts.
+You can then invoke the `rustlex!` macro anywhere. The macro will expand into a single lexer structure and implementation describing the lexical analyser.
 
-The `rustlex!` macro takes as argument the description of the lexical analyser. The description consists of two parts:
+The `rustlex!` macro takes as argument the name of the structure and the description of the lexical analyser. The description consists of two parts:
 * definitions of regular expressions
 * definitions of rules
 
-Here's a simple example that matches integers, floats and identifiers in a file, using the C language syntax for literals and identifiers:
+A minimum lexer will look like:
 
-```rust
-#![feature(phase)]
-#[phase(syntax)]
-extern crate rustlex;
+```
+rustlex! SimpleLexer {
+    // expression definitions
+    let A = 'a';
 
-// The Token type is returned by the lexer function on
-// each call and must be declared in the same module
-// as where the rustlex! macro is invoked
-enum Token {
-    TokInt,
-    TokFloat,
-    TokId
+    // then rules
+    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
+```
 
-rustlex!(
-    // define some regular expressions that matches
-    // float and int constants allowed in C
-    // definitions are of the form
-    //    let name = regex;
-    // a complete description of the regex syntax
-    // is available in the manual
-    let INT = ['0'-'9']+['u''U''l''L']%;
-    let HEX = '0'['x''X']['a'-'f''A'-'F''0'-'9']+['u''U''l''L']%;
-    let FLOAT = (['0'-'9']+'.'|['0'-'9']*'.'['0'-'9']+)(['e''E']['+''-']%['0'-'9']+)%['f''F''l''L']%;
-    let DEC_FLOAT = ['0'-'9']+(['e''E']['+''-']%['0'-'9']+)['f''F''l''L']%;
-    let HEX_FLOAT = '0'['x''X']['a'-'f''A'-'F''0'-'9']*'.'['a'-'f''A'-'F''0'-'9']*(['p''P']['0'-'9']+)%['f''F''l''L']%;
-    let INTCONST = (INT|HEX);
-    let FLTCONST = (FLOAT|HEX_FLOAT|DEC_FLOAT);
-    let ID = ['a'-'z''A'-'Z''_']['a'-'z''A'-'Z''_''0'-'9']*;
+More complex regular expression definition examples can be found in [a more complex example](tests/complex.rs). It is worth noting that:
+* characters (standalone or in character class) and strings have to be quoted as in rust or C (simple quote for character, double quote for strings)
+* the `%` character replaces the usual `?`
+* an expression definition can be "called" by its identifier in another expression
 
-    // define rules that associate a pattern
-    // to a Rust snippet to be executed when a
-    // token matching the pattern is encountered
-    // each rule is of the form
-    //    regex => action
-    // action can be a block or a single statement
-    INTCONST => return Some(TokInt)
-    FLTCONST => return Some(TokFloat)
-    ID => return Some(TokId)
-)
+#### Using a lexer
 
-fn main() {
-    let pth = Path::new("input");
-    let inp = ~::std::io::File::open(&pth).unwrap() as ~::std::io::Reader;
-    
-    // instantiating the lexer struct takes a ~Reader as argument
-    let mut lexer = Lexer::new(inp);
+The lexer will read characters from a standard rust `Reader` and implement a `Token` `iterator`.
 
-    // you can now use the lexer as an iterator
-    // each call to next() will return Some(tok),
-    // with tok being the next available token,
-    // or None when reaching eof
-    for tok in lexer {
-        match tok {
-            TokInt => println!("Saw an int"),
-            TokFloat => println!("Saw a float"),
-            TokId => println!("Saw an ID"),
-        }
+```
+    let inp = BufReader::new("aa".as_bytes());
+    let mut lexer = SimpleLexer::new(inp);
+    for tok in *lexer {
+        ...
     }
-}
 ```
 
-Just compile the above example using:
+#### Advanced lexer features
 
-```
-rustc example.rs -L.
-```
+##### Token enumeration
 
-Don't forget to add the directory containing the RustLex library to the linker path of Rustc, with the `-L` option. In my case, it's the current directory (`.`).
+By default, `rustlex!` assumes the existence of a token enumeration named `Token` in the same module, but this name can be overriden when needed as is the case for the `OtherLexer` from [this example](tests/simple.rs).
+
+##### Conditions
+
+As in flex, conditions can be defined to have the lexer switch from one mode to another.
+
+Check out [this example](tests/condition.rs).
+
+##### Arbitrary lexer properties and methods
+
+It is possible to add specific fields to the lexer structure using the `property` keyword as shown [there](tests/properties.rs).
+
+Lexer methods (to be called from action code) can also be defined by a normal `impl` section.
