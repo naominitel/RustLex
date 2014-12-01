@@ -267,6 +267,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
         #[inline(always)] $accepting_method
         $conditions
 
+        #[allow(dead_code)]
         fn yystr(&mut self) -> String {
             let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
             let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
