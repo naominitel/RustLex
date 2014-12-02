@@ -26,7 +26,7 @@ rustlex! PropertiesLexer {
 #[test]
 fn test_ok() {
     let inp = BufReader::new("((()()))".as_bytes());
-    let lexer = PropertiesLexer::new(inp);
+    let mut lexer = PropertiesLexer::new(inp);
     let result:Vec<Token> = lexer.collect();
     assert_eq!(8, result.len());
 }
