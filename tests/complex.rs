@@ -23,11 +23,11 @@ rustlex! ComplexLexer {
     //    let name = regex;
     // a complete description of the regex syntax
     // is available in the manual
-    let INT = ['0'-'9']+["uUlL"]%;
-    let HEX = '0'["xX"]['a'-'f''A'-'F''0'-'9']+["uUlL"]%;
-    let FLOAT = (['0'-'9']+'.'|['0'-'9']*'.'['0'-'9']+)(["eE"]["+-"]%['0'-'9']+)%["fFlL"]%;
-    let DEC_FLOAT = ['0'-'9']+(["eE"]["+-"]%['0'-'9']+)["fFlL"]%;
-    let HEX_FLOAT = '0'["xX"]['a'-'f''A'-'F''0'-'9']*'.'['a'-'f''A'-'F''0'-'9']*(["pP"]['0'-'9']+)%["fFlL"]%;
+    let INT = ['0'-'9']+["uUlL"]?;
+    let HEX = '0'["xX"]['a'-'f''A'-'F''0'-'9']+["uUlL"]?;
+    let FLOAT = (['0'-'9']+'.'|['0'-'9']*'.'['0'-'9']+)(["eE"]["+-"]?['0'-'9']+)?["fFlL"]?;
+    let DEC_FLOAT = ['0'-'9']+(["eE"]["+-"]?['0'-'9']+)["fFlL"]?;
+    let HEX_FLOAT = '0'["xX"]['a'-'f''A'-'F''0'-'9']*'.'['a'-'f''A'-'F''0'-'9']*(["pP"]['0'-'9']+)?["fFlL"]?;
     let INTCONST = (INT|HEX);
     let FLTCONST = (FLOAT|HEX_FLOAT|DEC_FLOAT);
     let STR = '"' ([^'\\''"']|'\\'.)* '"' ;

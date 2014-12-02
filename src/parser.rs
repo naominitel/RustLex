@@ -171,7 +171,7 @@ fn get_closure(parser: &mut Parser, env: &Env) -> Box<Regex> {
     else if parser.eat(&token::BinOp(token::Plus)) {
         box regex::Cat(reg.clone(), box regex::Closure(reg))
     }
-    else if parser.eat(&token::BinOp(token::Percent)) { box regex::Maybe(reg) }
+    else if parser.eat(&token::Question) { box regex::Maybe(reg) }
     else { reg }
 }
 

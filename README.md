@@ -46,7 +46,6 @@ rustlex! SimpleLexer {
 
 More complex regular expression definition examples can be found in [a more complex example](tests/complex.rs). It is worth noting that:
 * characters (standalone or in character class) and strings have to be quoted as in rust or C (simple quote for character, double quote for strings)
-* the `%` character replaces the usual `?`
 * an expression definition can be "called" by its identifier in another expression
 
 #### Using a lexer
