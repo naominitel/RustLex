@@ -32,6 +32,7 @@ impl RustLexBuffer {
     }
 }
 
+#[deriving(Copy)]
 pub struct RustLexPos {
     pub buf: uint,
     pub off: uint
