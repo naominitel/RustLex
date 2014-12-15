@@ -45,7 +45,7 @@ fn get_properties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
                 parser.bump();
                 let name = parser.parse_ident();
                 parser.expect(&token::Colon);
-                let ty = parser.parse_ty(true);
+                let ty = parser.parse_ty();
                 parser.expect(&token::Eq);
                 let expr = parser.parse_expr();
                 parser.expect(&token::Semi);
