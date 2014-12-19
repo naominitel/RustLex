@@ -13,12 +13,53 @@ use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
 use syntax::ast::Ty;
+use syntax::codemap::Span;
 use syntax::parse;
 use syntax::parse::token;
 use syntax::parse::token::keywords;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
 use util::BinSetu8;
+
+trait Tokenizer {
+    // returns the current token, without consuming it
+    fn token<'a>(&'a self) -> &'a token::Token;
+
+    // consumes the current token
+    fn bump(&mut self);
+
+    // consumes the current token and return it
+    // equivalent to token() followed by bump()
+    fn bump_and_get(&mut self) -> token::Token;
+
+    // consumes the current token and return true if
+    // it corresponds to tok, or false otherwise
+    fn eat(&mut self, tok: &token::Token) -> bool;
+
+    // expects the following token to be the
+    // same as the given token, then consumes it
+    fn expect(&mut self, tok: &token::Token);
+
+    // returns the span of the previous token
+    fn last_span(&self) -> Span;
+
+    // various functions to abort parsing
+    fn span_fatal(&mut self, sp: Span, m: &str) -> !;
+    fn unexpected(&mut self) -> !;
+    fn unexpected_last(&mut self, tok: &token::Token) -> !;
+}
+
+impl<'a> Tokenizer for Parser<'a> {
+    fn token<'b>(&'b self) -> &'b token::Token { &self.token }
+    fn bump(&mut self) { self.bump() }
+    fn bump_and_get(&mut self) -> token::Token { self.bump_and_get() }
+    fn eat(&mut self, tok: &token::Token) -> bool { self.eat(tok) }
+    fn expect(&mut self, tok: &token::Token) { self.expect(tok) }
+    fn last_span(&self) -> Span { self.last_span }
+    fn span_fatal(&mut self, sp: Span, m: &str) -> ! { self.span_fatal(sp, m) }
+    fn unexpected(&mut self) -> ! { self.unexpected() }
+    fn unexpected_last(&mut self, tok: &token::Token) -> ! { self.unexpected_last(tok) }
+}
 
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
@@ -59,9 +100,13 @@ fn get_properties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
     ret
 }
 
+// the functions below migth read their tokens either from the libsyntax
+// parser type or from our tokenizer that reads tokens from a raw string,
+// hence the type parameter
+
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
-fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
+fn get_char_class<T: Tokenizer>(parser: &mut T) -> Box<BinSetu8> {
     let mut ret = box BinSetu8::new(256);
     loop {
         let tok = parser.bump_and_get();
@@ -73,7 +118,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
             token::Literal(token::Lit::Char(i), _) => {
                 let mut ch = parse::char_lit(i.as_str()).val0() as u8;
 
-                match parser.token {
+                match *parser.token() {
                     token::BinOp(token::Minus) => {
                         // a char seq, e.g. 'a' - 'Z'
                         parser.bump();
@@ -83,7 +128,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                             _ => parser.unexpected()
                         };
                         if ch >= ch2 {
-                            let last_span = parser.last_span;
+                            let last_span = parser.last_span();
                             parser.span_fatal(last_span,
                                 "invalid character range")
                         }
@@ -101,7 +146,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                 let s = token::get_name(id);
                 let s = s.get();
                 if s.len() == 0 {
-                    let last_span = parser.last_span;
+                    let last_span = parser.last_span();
                     parser.span_fatal(last_span,
                         "bad string constant in character class")
                 }
@@ -122,7 +167,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
 // - an identifier refering to another expression
 // parenthesized subexpressions are also parsed here since the have
 // the same operator precedence as the constants
-fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
+fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
     let tok = parser.bump_and_get();
     // here we expect either
     // the start of a character-class, '['
@@ -142,18 +187,18 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
         token::Literal(token::Lit::Char(ch), _) =>
             box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
         token::Literal(token::Lit::Str_(id), _) =>
-                match regex::string(token::get_name(id).get()) {
-            Some(reg) => reg,
-            None => {
-                let last_span = parser.last_span;
-                parser.span_fatal(last_span,
-                "bad string constant in regular expression")
-            }
-        },
+            match regex::string(token::get_name(id).get()) {
+                Some(reg) => reg,
+                None => {
+                    let last_span = parser.last_span();
+                    parser.span_fatal(last_span,
+                        "bad string constant in regular expression")
+                }
+            },
         token::Ident(id, _) => match env.get(&id.name).cloned() {
             Some(value) => box regex::Var(value),
             None => {
-                let last_span = parser.last_span;
+                let last_span = parser.last_span();
                 parser.span_fatal(last_span,
                 format!("unknown identifier: {}", 
                     token::get_name(id.name).get()).as_slice())
@@ -165,7 +210,7 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
 
 // a "closure" in a regular expression, i.e. expr*
 // the * operator has lower precedence that concatenation
-fn get_closure(parser: &mut Parser, env: &Env) -> Box<Regex> {
+fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
     let reg = get_const(parser, env);
     if parser.eat(&token::BinOp(token::Star)) { box regex::Closure(reg) }
     else if parser.eat(&token::BinOp(token::Plus)) {
@@ -179,10 +224,11 @@ fn get_closure(parser: &mut Parser, env: &Env) -> Box<Regex> {
 // continues until it reaches the end of the current subexpr,
 // indicated by the end parameter or an or operator, which has
 // higher precedence. Concatenation is left-assoc
-fn get_concat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
+fn get_concat<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
+    -> Box<Regex> {
     let opl = get_closure(parser, env);
-    if &parser.token == end ||
-        parser.token == token::BinOp(token::Or) {
+    if parser.token() == end ||
+        *parser.token() == token::BinOp(token::Or) {
         opl
     } else {
         let opr = get_concat(parser, end, env);
@@ -195,7 +241,8 @@ fn get_concat(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> 
 // if we are not at the end of the current subexpression as indicated by
 // the end parameter, we try to read a | operator followed by another
 // expression which is parsed recursively (or is left-assoc)
-fn get_regex(parser: &mut Parser, end: &token::Token, env: &Env) -> Box<Regex> {
+fn get_regex<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
+    -> Box<Regex> {
     if parser.eat(end) {
         parser.unexpected();
     }
