@@ -235,7 +235,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
         fields.push(cx.field_imm(sp, ast::Ident::new(name), expr.clone()));
     }
 
-    let initial = lex.conditions[0].val1();
+    let initial = lex.conditions[0].1;
     fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_input")),
         quote_expr!(&*cx, ::rustlex::rt::RustLexLexer::new(reader))));
     fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_state")),

@@ -71,7 +71,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
             }
 
             token::Literal(token::Lit::Char(i), _) => {
-                let mut ch = parse::char_lit(i.as_str()).val0() as u8;
+                let mut ch = parse::char_lit(i.as_str()).0 as u8;
 
                 match parser.token {
                     token::BinOp(token::Minus) => {
@@ -79,7 +79,7 @@ fn get_char_class(parser: &mut Parser) -> Box<BinSetu8> {
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
                             token::Literal(token::Lit::Char(ch), _) =>
-                                parse::char_lit(ch.as_str()).val0() as u8,
+                                parse::char_lit(ch.as_str()).0 as u8,
                             _ => parser.unexpected()
                         };
                         if ch >= ch2 {
@@ -140,7 +140,7 @@ fn get_const(parser: &mut Parser, env: &Env) -> Box<Regex> {
             }
         }
         token::Literal(token::Lit::Char(ch), _) =>
-            box regex::Char(parse::char_lit(ch.as_str()).val0() as u8),
+            box regex::Char(parse::char_lit(ch.as_str()).0 as u8),
         token::Literal(token::Lit::Str_(id), _) =>
                 match regex::string(token::get_name(id).get()) {
             Some(reg) => reg,
