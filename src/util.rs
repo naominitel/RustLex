@@ -1,4 +1,4 @@
-use std::slice;
+use std::slice::Iter;
 
 // A vector type optimized for cases where the size is almost always 0 or 1
 // Code inspired my Mozilla's SmallVector for libsyntax
@@ -75,7 +75,7 @@ impl BinSet {
     }
 
     #[inline(always)]
-    pub fn iter<'a>(&'a self) -> slice::Items<'a, uint> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, uint> {
         self.states.iter()
     }
 
