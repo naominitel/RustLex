@@ -7,7 +7,7 @@ It differs from Lex by using Rust's new [syntax extensions]() system as the inte
 
 Rustlex is available through cargo.
 
-```
+```toml
 [dependencies.rustlex]
 git = "https://github.com/naominitel/rustlex"
 ```
@@ -20,7 +20,7 @@ When rust 1.0 will be out, we'll draft a procedure to statically generate lexer 
 
 Defining a lexical analyser is done using the `rustlex!` syntax extension. To made this syntax extension available, you first need to tell Rustc to load the RustLex library by adding the following at the top of your crate:
 
-```
+```rust
 #![feature(phase)]
 #[phase(plugin,link)] extern crate rustlex;
 #[phase(plugin,link)] extern crate log;
@@ -34,7 +34,7 @@ The `rustlex!` macro takes as argument the name of the structure and the descrip
 
 A minimum lexer will look like:
 
-```
+```rust
 rustlex! SimpleLexer {
     // expression definitions
     let A = 'a';
@@ -52,12 +52,12 @@ More complex regular expression definition examples can be found in [a more comp
 
 The lexer will read characters from a standard rust `Reader` and implement a `Token` `iterator`.
 
-```
-    let inp = BufReader::new("aa".as_bytes());
-    let mut lexer = SimpleLexer::new(inp);
-    for tok in *lexer {
-        ...
-    }
+```rust
+let inp = BufReader::new("aa".as_bytes());
+let mut lexer = SimpleLexer::new(inp);
+for tok in *lexer {
+    ...
+}
 ```
 
 #### Advanced lexer features
