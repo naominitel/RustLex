@@ -6,7 +6,7 @@ use std::io::BufReader;
 
 use self::Token::{Open,Close};
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum Token {
     Open,
     Close

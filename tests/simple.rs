@@ -7,7 +7,7 @@ use std::io::BufReader;
 use self::Token::TokA;
 use self::TokenB::TokB;
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum Token {
     TokA(String),
 }
@@ -30,7 +30,7 @@ fn test_simple() {
     assert!(iter.next() == None);
 }
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum TokenB {
     TokB(String)
 }

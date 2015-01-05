@@ -107,7 +107,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                         ast::Ident::new(token::intern("io")),
                         ast::Ident::new(token::intern("Reader"))
                 ))))),
-                None, None)
+                None)
             )),
             where_clause: ast::WhereClause {
                 id: ast::DUMMY_NODE_ID,
@@ -297,7 +297,8 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
     let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
     let i2 = (quote_item!(cx,
-    impl <R: ::std::io::Reader> Iterator<$tokens> for $ident<R> {
+    impl <R: ::std::io::Reader> Iterator for $ident<R> {
+        type Item = $tokens;
         fn next(&mut self) -> Option<$tokens> {
             loop {
                 self._input.tok = self._input.pos;

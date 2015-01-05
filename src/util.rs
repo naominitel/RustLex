@@ -1,4 +1,5 @@
 use std::slice::Iter;
+use std::iter::repeat;
 
 // A vector type optimized for cases where the size is almost always 0 or 1
 // Code inspired my Mozilla's SmallVector for libsyntax
@@ -37,7 +38,7 @@ pub struct BinSet {
 // FIXME: make generic
 // currently we can't write something like impl<T: Bound> where Bound
 // would allow T to be shifted or bitor/and'd by any numeric type
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct BinSetu8 {
     pub data: Vec<u64>,
     pub states: Vec<u8>
@@ -68,7 +69,7 @@ impl BinSet {
         // (state_count / 64) + 1
         let chunks = (state_count >> 6) + 1;
         BinSet {
-            data: Vec::from_elem(chunks, 0u64),
+            data: repeat(0u64).take(chunks).collect(),
             states: Vec::with_capacity(state_count),
             action: 0
         }
@@ -116,7 +117,7 @@ impl BinSetu8 {
         // (state_count / 64) + 1
         let chunks = (state_count >> 6) + 1;
         BinSetu8 {
-            data: Vec::from_elem(chunks, 0u64),
+            data: repeat(0u64).take(chunks).collect(),
             states: Vec::with_capacity(state_count)
         }
     }

@@ -2,6 +2,7 @@ use nfa;
 use std::result;
 use util;
 use syntax::ast;
+use std::iter::repeat;
 
 pub use self::MinimizationError::UnreachablePattern;
 
@@ -11,7 +12,7 @@ struct State {
     // this is not strictly speaking
     // a DFA since there may be no
     // transitions for a given input
-    pub trans: [uint, .. 256],
+    pub trans: [uint; 256],
 
     // for DFA determinization
     // remember the set of NFA states
@@ -99,7 +100,7 @@ impl Automaton {
     #[inline(always)]
     fn create_state(&mut self, act: uint, states: Option<Box<util::BinSet>>) -> uint {
         self.states.push(State {
-            trans: [0, .. 256],
+            trans: [0; 256],
             states: match states {
                 Some(s) => s,
                 None => box util::BinSet::new(0u)
@@ -129,7 +130,7 @@ impl Automaton {
         // of subgroups of the form (gr, st) where gr is the number of the
         // subgroup (it may be the same as the original group), and st the
         // number of a representing state
-        let mut subgroups: Vec<Vec<(uint, uint)>> = Vec::from_elem(acts_count, vec!());
+        let mut subgroups: Vec<Vec<(uint, uint)>> = repeat(vec!()).take(acts_count).collect();
         loop {
             // subgroups become groups, reinitialize subgroups
             for i in subgroups.iter_mut() {

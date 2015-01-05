@@ -6,7 +6,7 @@ use std::io::BufReader;
 
 use self::Token::{TokOuterStuff, TokInnerStuff};
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum Token {
     TokOuterStuff(String),
     TokInnerStuff(String)

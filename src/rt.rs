@@ -1,3 +1,5 @@
+use std::ops::IndexMut;
+
 static RUSTLEX_BUFSIZE: uint = 4096;
 
 pub struct RustLexBuffer {
@@ -32,7 +34,7 @@ impl RustLexBuffer {
     }
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct RustLexPos {
     pub buf: uint,
     pub off: uint
@@ -78,8 +80,8 @@ impl<R: ::std::io::Reader> RustLexLexer<R> {
                 // than a couple of buffers
                 let unused_buffers_count = self.tok.buf;
                 for i in range(0, unused_buffers_count) {
-                    self.inp.index_mut(&i).valid = false;
-                    self.inp.index_mut(&i).d.truncate(0);
+                    self.inp[i].valid = false;
+                    self.inp[i].d.truncate(0);
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
