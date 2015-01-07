@@ -1,3 +1,5 @@
+use std::ops::IndexMut;
+
 static RUSTLEX_BUFSIZE: uint = 4096;
 
 pub struct RustLexBuffer {
@@ -32,7 +34,7 @@ impl RustLexBuffer {
     }
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct RustLexPos {
     pub buf: uint,
     pub off: uint

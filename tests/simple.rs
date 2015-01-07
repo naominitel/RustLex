@@ -7,14 +7,14 @@ use std::io::BufReader;
 use self::Token::TokA;
 use self::TokenB::TokB;
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum Token {
     TokA(String),
 }
 
 rustlex! SimpleLexer {
     let A = 'a';
-    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn test_simple() {
     assert!(iter.next() == None);
 }
 
-#[deriving(PartialEq,Show)]
+#[derive(PartialEq,Show)]
 enum TokenB {
     TokB(String)
 }
@@ -38,7 +38,7 @@ enum TokenB {
 rustlex! OtherLexer {
     token TokenB;
     let B = 'b';
-    B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
+    B => |&: lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 
 #[test]
