@@ -60,9 +60,9 @@ fn test_complex() {
         TokId(String::from_str("bar")),
         TokId(String::from_str("baz")),
         TokFloat(0.1),
-        TokInt(212 as u32),
+        TokInt(212u32),
         TokString(String::from_str("\"a\"")),
-        TokInt(0x121u as u32),
+        TokInt(0x121u32),
         TokId(String::from_str("baz")),
         TokInt(123),
         TokId(String::from_str("foo")));

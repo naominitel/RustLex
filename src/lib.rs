@@ -1,3 +1,4 @@
+#![allow(unstable)]
 #![feature(plugin_registrar)]
 #![feature(quote)]
 #![crate_type="dylib"]
