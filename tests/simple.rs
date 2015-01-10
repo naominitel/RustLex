@@ -1,6 +1,6 @@
-#![feature(phase)]
-#[phase(plugin, link)] extern crate rustlex;
-#[phase(plugin, link)] extern crate log;
+#![feature(plugin)]
+#[plugin] extern crate rustlex;
+#[macro_use] extern crate log;
 
 use std::io::BufReader;
 
@@ -14,7 +14,7 @@ enum Token {
 
 rustlex! SimpleLexer {
     let A = 'a';
-    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    A => |:lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
 #[test]
@@ -38,7 +38,7 @@ enum TokenB {
 rustlex! OtherLexer {
     token TokenB;
     let B = 'b';
-    B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
+    B => |:lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 
 #[test]

@@ -55,7 +55,7 @@ pub struct Lexer {
     ident:Ident,
     auto: Box<dfa::Automaton>,
     actions: Vec<P<Expr>>,
-    conditions: Vec<(Name, uint)>,
+    conditions: Vec<(Name, usize)>,
     properties: Vec<Prop>
 }
 
@@ -70,7 +70,7 @@ impl Lexer {
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
         let mut acts = vec!(dummy_expr);
-        let mut id = 1u;
+        let mut id = 1us;
 
         // now build the automatas and record
         // the initial state number for each

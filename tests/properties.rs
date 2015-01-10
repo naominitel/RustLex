@@ -1,6 +1,6 @@
-#![feature(phase)]
-#[phase(plugin, link)] extern crate rustlex;
-#[phase(plugin, link)] extern crate log;
+#![feature(plugin)]
+#[plugin] extern crate rustlex;
+#[macro_use] extern crate log;
 
 use std::io::BufReader;
 

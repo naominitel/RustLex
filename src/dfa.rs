@@ -12,24 +12,24 @@ struct State {
     // this is not strictly speaking
     // a DFA since there may be no
     // transitions for a given input
-    pub trans: [uint; 256],
+    pub trans: [usize; 256],
 
     // for DFA determinization
     // remember the set of NFA states
     // that this state corresponds to
     states: Box<util::BinSet>,
-    pub action: uint
+    pub action: usize
 }
 
 pub struct Automaton {
     pub states: Vec<State>,
-    pub initial: uint
+    pub initial: usize
 }
 
 // used by the determinization algorithm
 
 pub enum MinimizationError {
-    UnreachablePattern(uint)
+    UnreachablePattern(usize)
 }
 
 impl Automaton {
@@ -70,11 +70,11 @@ impl Automaton {
 
                 match dst {
                     // in any case, add a transition
-                    Some(i) => self.states[next].trans[ch as uint] = i,
+                    Some(i) => self.states[next].trans[ch as usize] = i,
                     None => {
                         // create a new DFA state for this set
                         let st = self.create_state(clos.action(), Some(clos));
-                        self.states[next].trans[ch as uint] = st;
+                        self.states[next].trans[ch as usize] = st;
                         unmarked.push(st);
                     }
                 }
@@ -87,10 +87,10 @@ impl Automaton {
     }
 
     pub fn new() -> Box<Automaton> {
-        let mut ret = box Automaton {
+        let mut ret = Box::new(Automaton {
             states: vec!(),
             initial: 0
-        };
+        });
 
         // create a dead state
         ret.create_state(0, None);
@@ -98,12 +98,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    fn create_state(&mut self, act: uint, states: Option<Box<util::BinSet>>) -> uint {
+    fn create_state(&mut self, act: usize, states: Option<Box<util::BinSet>>) -> usize {
         self.states.push(State {
             trans: [0; 256],
             states: match states {
                 Some(s) => s,
-                None => box util::BinSet::new(0u)
+                None => Box::new(util::BinSet::new(0us))
             },
             action: act
         });
@@ -113,7 +113,7 @@ impl Automaton {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: uint, conditions: &mut [(ast::Name, uint)])
+    pub fn minimize(&self, acts_count: usize, conditions: &mut [(ast::Name, usize)])
         -> result::Result<Box<Automaton>, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
@@ -130,7 +130,7 @@ impl Automaton {
         // of subgroups of the form (gr, st) where gr is the number of the
         // subgroup (it may be the same as the original group), and st the
         // number of a representing state
-        let mut subgroups: Vec<Vec<(uint, uint)>> = repeat(vec!()).take(acts_count).collect();
+        let mut subgroups: Vec<Vec<(usize, usize)>> = repeat(vec!()).take(acts_count).collect();
         loop {
             // subgroups become groups, reinitialize subgroups
             for i in subgroups.iter_mut() {
@@ -152,10 +152,10 @@ impl Automaton {
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
-                    for i in range(0, 255u) {
+                    for i in range(0, 255us) {
                         let (s1, s2) = (
-                            self.states[st].trans[i as uint],
-                            self.states[s].trans[i as uint]
+                            self.states[st].trans[i],
+                            self.states[s].trans[i]
                         );
                         if groups[s1] != groups[s2] {
                             continue 'h;
@@ -196,10 +196,10 @@ impl Automaton {
         }
 
         // construct the minimal DFA
-        let mut ret = box Automaton {
+        let mut ret = Box::new(Automaton {
             states: Vec::with_capacity(subgroups.len()),
             initial: groups[self.initial] + 1
-        };
+        });
 
         // create the dead state
         // FIXME: is this really necessary ? it works
@@ -233,7 +233,7 @@ impl Automaton {
             // adjust transitions
             // the new state transitions to the representing state of the group
             // that contains the state to which is previously transitionned
-            let mut ch = 0u;
+            let mut ch = 0us;
             for t in st.trans.iter() {
                 match *t {
                     0 => state.trans[ch] = 0,
@@ -264,7 +264,7 @@ impl Automaton {
         writeln!(out, "\tsize = \"4,4\";");
         writeln!(out, "\tnode [shape=box]; {};", self.initial);
 
-        let mut i = 0u;
+        let mut i = 0us;
 
         // outputs final states as doublecircle-shaped nodes
         for st in self.states.iter() {
@@ -278,15 +278,14 @@ impl Automaton {
 
         writeln!(out, "\tnode [shape=circle];");
 
-        let mut i = 0u;
+        let mut i = 0us;
         for st in self.states.iter() {
-            for ch in range(0, 256u) {
-                let ch = ch as u8;
-                match st.trans[ch as uint] {
+            for ch in range(0, 256us) {
+                match st.trans[ch] {
                     0 => (),
                     dst => {
                         let mut esc = String::new();
-                        esc.extend((ch as char).escape_default());
+                        esc.extend((ch as u8 as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"{}\"];",
                             i, dst, esc);
                     }

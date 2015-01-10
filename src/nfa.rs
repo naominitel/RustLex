@@ -15,9 +15,9 @@ pub use self::Etrans::{No, One, Two, More};
 // To avoid systematically using an array, we use this structure:
 enum Etrans {
     No,
-    One(uint),
-    Two(uint, uint),
-    More(Vec<uint>)
+    One(usize),
+    Two(usize, usize),
+    More(Vec<usize>)
 }
 
 struct State {
@@ -34,26 +34,26 @@ struct State {
     // case in which there are many transitions
     // to a single state (typically a character
     // class)
-    trans: (svec::SVec, uint),
+    trans: (svec::SVec, usize),
 
     // 0: no action. otherwise, it's
     // a f1nal state with an action
-    action: uint
+    action: usize
 }
 
 pub struct Automaton {
     pub states: Vec<State>,
-    pub initial: uint
+    pub initial: usize
 }
 
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
-    let mut ret = box Automaton {
+pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, usize)>) -> Box<Automaton> {
+    let mut ret = Box::new(Automaton {
         states: Vec::new(),
-        initial: 0
-    };
+        initial: 0us
+    });
 
     let ini = ret.create_state();
     let mut etrans = Vec::new();
@@ -72,13 +72,13 @@ pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, uint)>) -> Box<Automaton> {
 impl Automaton {
     #[inline(always)]
     #[allow(dead_code)]
-    pub fn f1nal(&self, state: uint) -> bool {
+    pub fn f1nal(&self, state: usize) -> bool {
         self.states[state].action != 0
     }
 
     // insert a new empty state and return its number
     #[inline(always)]
-    fn create_state(&mut self) -> uint {
+    fn create_state(&mut self) -> usize {
         self.states.push(State {
             trans: (svec::Zero, 0),
             etrans: No,
@@ -88,7 +88,7 @@ impl Automaton {
     }
 
     #[inline(always)]
-    fn setnonf1nal(&mut self, state: uint) {
+    fn setnonf1nal(&mut self, state: usize) {
         self.states[state].action = 0;
     }
 
@@ -98,7 +98,7 @@ impl Automaton {
     // won't have to be changed
     // the initial state is always the last state created, this way we can reuse
     // it in the concatenation case and avoid adding useless e-transitions
-    fn init_from_regex(&mut self, reg: &regex::Regex) -> (uint, uint) {
+    fn init_from_regex(&mut self, reg: &regex::Regex) -> (usize, usize) {
         match reg {
             &regex::Or(ref left, ref right) => {
                 // build sub-FSMs
@@ -197,9 +197,9 @@ impl Automaton {
         }
     }
 
-    pub fn moves(&self, st: &BinSet) -> Vec<Vec<uint>> {
+    pub fn moves(&self, st: &BinSet) -> Vec<Vec<usize>> {
         let mut ret = Vec::new();
-        for _ in range(0, 256u) {
+        for _ in range(0, 256us) {
             ret.push(vec!());
         }
 
@@ -207,14 +207,14 @@ impl Automaton {
             match self.states[*s].trans {
                 (svec::Many(ref v), dst) =>
                     for &ch in v.states.iter() {
-                        ret[ch as uint].push(dst)
+                        ret[ch as usize].push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
                     let data = &set.data;
                     let mut chk = data[0];
                     let mut i = 0;
 
-                    for ch in range(0, 256u) {
+                    for ch in range(0, 256us) {
                         if (ch & 0x3F) == 0 {
                             chk = data[i];
                             i += 1;
@@ -228,10 +228,10 @@ impl Automaton {
                     }
                 }
                 (svec::Any, dst) =>
-                    for ch in range(0, 256u) {
+                    for ch in range(0, 256us) {
                         ret[ch].push(dst);
                     },
-                (svec::One(ch), dst) => ret[ch as uint].push(dst),
+                (svec::One(ch), dst) => ret[ch as usize].push(dst),
                 (svec::Zero, _) => ()
             }
         }
@@ -240,12 +240,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    pub fn eclosure_(&self, st: uint) -> Box<BinSet> {
+    pub fn eclosure_(&self, st: usize) -> Box<BinSet> {
         self.eclosure(&[st])
     }
 
-    pub fn eclosure(&self, st: &[uint]) -> Box<BinSet> {
-        let mut ret = box BinSet::new(self.states.len());
+    pub fn eclosure(&self, st: &[usize]) -> Box<BinSet> {
+        let mut ret = Box::new(BinSet::new(self.states.len()));
         let mut stack = Vec::with_capacity(st.len());
 
         for s in st.iter() {

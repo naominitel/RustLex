@@ -31,8 +31,8 @@ pub mod svec {
 // to a vec
 pub struct BinSet {
     data: Vec<u64>,
-    states: Vec<uint>,
-    pub action: uint
+    states: Vec<usize>,
+    pub action: usize
 }
 
 // FIXME: make generic
@@ -50,14 +50,14 @@ impl BinSet {
     // higher bits give the index of the chunk in the data array
 
     #[inline(always)]
-    pub fn contains(&self, state: uint) -> bool {
+    pub fn contains(&self, state: usize) -> bool {
         let chunk = state >> 6;
         let idx = state & 0x3F;
         ((self.data[chunk] >> idx) & 1) != 0
     }
 
     #[inline(always)]
-    pub fn insert(&mut self, state: uint) {
+    pub fn insert(&mut self, state: usize) {
         let chunk = state >> 6;
         let idx = state & 0x3F;
         self.data[chunk] |= 1 << idx;
@@ -65,7 +65,7 @@ impl BinSet {
     }
 
     #[inline(always)]
-    pub fn new(state_count: uint) -> BinSet {
+    pub fn new(state_count: usize) -> BinSet {
         // (state_count / 64) + 1
         let chunks = (state_count >> 6) + 1;
         BinSet {
@@ -76,7 +76,7 @@ impl BinSet {
     }
 
     #[inline(always)]
-    pub fn iter<'a>(&'a self) -> Iter<'a, uint> {
+    pub fn iter<'a>(&'a self) -> Iter<'a, usize> {
         self.states.iter()
     }
 
@@ -86,7 +86,7 @@ impl BinSet {
     }
 
     #[inline(always)]
-    pub fn action(&self) -> uint {
+    pub fn action(&self) -> usize {
         self.action
     }
 }
@@ -99,21 +99,21 @@ impl BinSetu8 {
     #[inline(always)]
     #[allow(dead_code)]
     pub fn contains(&self, state: u8) -> bool {
-        let chunk = (state >> 6u) as uint;
-        let idx = (state & 0x3Fu8) as uint;
+        let chunk = (state >> 6u64) as usize;
+        let idx = (state & 0x3Fu8) as u8;
         ((self.data[chunk] >> idx) & 1) != 0
     }
 
     #[inline(always)]
     pub fn insert(&mut self, state: u8) {
-        let chunk = (state >> 6u) as uint;
-        let idx = (state & 0x3Fu8) as uint;
+        let chunk = (state >> 6u64) as usize;
+        let idx = (state & 0x3Fu8) as u8;
         self.data[chunk] |= 1 << idx;
         self.states.push(state);
     }
 
     #[inline(always)]
-    pub fn new(state_count: uint) -> BinSetu8 {
+    pub fn new(state_count: usize) -> BinSetu8 {
         // (state_count / 64) + 1
         let chunks = (state_count >> 6) + 1;
         BinSetu8 {

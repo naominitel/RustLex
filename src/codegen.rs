@@ -90,7 +90,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 ast::Public
             ),
             id: -1 as u32,
-            ty: quote_ty!(&*cx, uint),
+            ty: quote_ty!(&*cx, u64),
             attrs: vec!()
         }
     });
@@ -129,7 +129,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     items.extend(user_lexer_impl(cx, sp, lex).into_iter());
     info!("done!");
 
-    box CodeGenerator {
+    Box::new(CodeGenerator {
         span: sp,
         // FIXME:
         handler: diagnostic::mk_span_handler(
@@ -137,13 +137,13 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
             CodeMap::new()
         ),
         items: items
-    }
+    })
 }
 
 pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
     let mut arms = Vec::with_capacity(acts.len());
-    let mut i = 1u;
+    let mut i = 1us;
 
     for act in acts.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
@@ -153,7 +153,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, |lexer:&mut $ident<R>| {
+    let def_act = quote_expr!(&*cx, |:lexer:&mut $ident<R>| {
         // default action is printing on stdout
         lexer._input.pos = lexer._input.tok;
         lexer._input.pos.off += 1;
@@ -172,7 +172,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     // * transtable: an array of N arrays of 256 uints, N being the number
     //   of states in the FSM, which gives the transitions between states
     let ty_vec = cx.ty(sp, ast::TyFixedLengthVec(
-        cx.ty_ident(sp, cx.ident_of("uint")),
+        cx.ty_ident(sp, cx.ident_of("u64")),
         cx.expr_uint(sp, 256)));
     let mut transtable = Vec::new();
 
@@ -195,7 +195,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
             transtable);
 
     quote_method!(cx,
-        fn follow(&self, current_state:uint, symbol:uint) -> uint {
+        fn follow(&self, current_state:u64, symbol:u64) -> u64 {
             $transtable
             return TRANSITION_TABLE[current_state][symbol];
         }
@@ -206,7 +206,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     // * accepting: an array of N uints, giving the action associated to
     //   each state
     let ty_acctable = cx.ty(sp, ast::TyFixedLengthVec(
-        cx.ty_ident(sp, cx.ident_of("uint")),
+        cx.ty_ident(sp, cx.ident_of("u64")),
         cx.expr_uint(sp, lex.auto.states.len())));
 
     let mut acctable = Vec::new();
@@ -220,7 +220,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
             acctable);
 
     quote_method!(cx,
-        fn accepting(&self, state:uint) -> uint {
+        fn accepting(&self, state:u64) -> u64 {
             $acctable
             return ACCEPTING[state];
         }
@@ -260,7 +260,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let i1 = (quote_item!(cx,
     impl<R: ::std::io::Reader> $ident<R> {
         fn new(reader:R) -> Box<$ident<R>> {
-            box $init_expr
+            Box::new($init_expr)
         }
 
         #[inline(always)] $follow_method
@@ -314,8 +314,8 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                         _ => break
                     };
 
-                    let new_st:uint = self.follow(current_st, i as uint);
-                    let action_id:uint = self.accepting(new_st);
+                    let new_st:u64 = self.follow(current_st, i as u64);
+                    let action_id:u64 = self.accepting(new_st);
 
                     if action_id != 0 {
                         self._input.advance = self._input.pos;
