@@ -334,7 +334,6 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
                 // execute action corresponding to found state
                 let action_result = $actions_match(self) ;
-                debug!("action returned {}", action_result);
 
                 match action_result {
                     Some(token) => return Some(token),
