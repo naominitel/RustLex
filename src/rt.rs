@@ -1,3 +1,5 @@
+use std::ops::IndexMut;
+
 static RUSTLEX_BUFSIZE: uint = 4096;
 
 pub struct RustLexBuffer {
@@ -32,7 +34,7 @@ impl RustLexBuffer {
     }
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct RustLexPos {
     pub buf: uint,
     pub off: uint
@@ -55,7 +57,7 @@ pub struct RustLexLexer<R : Reader> {
 
 impl<R: ::std::io::Reader> RustLexLexer<R> {
     fn fill_buf(&mut self) {
-        let &RustLexBuffer {
+        let &mut RustLexBuffer {
             ref mut d,
             ref mut valid
         } = self.inp.index_mut(&self.pos.buf);

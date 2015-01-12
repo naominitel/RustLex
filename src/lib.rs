@@ -1,7 +1,7 @@
 #![feature(plugin_registrar)]
-#![feature(phase)]
 #![feature(quote)]
-#![feature(macro_rules)]
+#![feature(box_syntax)]
+#![feature(int_uint)]
 
 #![crate_type="dylib"]
 #![crate_name="rustlex"]
@@ -10,7 +10,7 @@ extern crate collections;
 extern crate syntax;
 extern crate rustc;
 
-#[phase(plugin, link)] extern crate log;
+#[macro_use] extern crate log;
 
 use syntax::ast::{Ident, TokenTree};
 use syntax::codemap::Span;

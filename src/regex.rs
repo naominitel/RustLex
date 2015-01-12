@@ -3,7 +3,7 @@ use util::BinSetu8;
 
 pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any};
 
-#[deriving(Clone)]
+#[derive(Clone)]
 pub enum Regex {
     // binary operators
     Or(Box<Regex>, Box<Regex>),
