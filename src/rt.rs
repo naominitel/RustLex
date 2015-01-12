@@ -1,6 +1,6 @@
 use std::ops::IndexMut;
 
-static RUSTLEX_BUFSIZE: uint = 4096;
+static RUSTLEX_BUFSIZE: usize = 4096;
 
 pub struct RustLexBuffer {
     d: Vec<u8>,
@@ -9,12 +9,12 @@ pub struct RustLexBuffer {
 
 impl RustLexBuffer {
     #[inline(always)]
-    pub fn len(&self) -> uint {
+    pub fn len(&self) -> usize {
         self.d.len()
     }
 
     #[inline(always)]
-    pub fn get(&self, idx: uint) -> &u8 {
+    pub fn get(&self, idx: usize) -> &u8 {
         &self.d[idx]
     }
 
@@ -24,20 +24,20 @@ impl RustLexBuffer {
     }
 
     #[inline(always)]
-    pub fn slice(&self, from: uint, to: uint) -> &[u8] {
+    pub fn slice(&self, from: usize, to: usize) -> &[u8] {
         self.d.slice(from, to)
     }
 
     #[inline(always)]
-    pub fn slice_from(&self, from: uint) -> &[u8] {
+    pub fn slice_from(&self, from: usize) -> &[u8] {
         self.d.slice_from(from)
     }
 }
 
 #[derive(Copy)]
 pub struct RustLexPos {
-    pub buf: uint,
-    pub off: uint
+    pub buf: usize,
+    pub off: usize
 }
 
 impl PartialEq for RustLexPos {
@@ -80,8 +80,8 @@ impl<R: ::std::io::Reader> RustLexLexer<R> {
                 // than a couple of buffers
                 let unused_buffers_count = self.tok.buf;
                 for i in range(0, unused_buffers_count) {
-                    self.inp.index_mut(&i).valid = false;
-                    self.inp.index_mut(&i).d.truncate(0);
+                    self.inp[i].valid = false;
+                    self.inp[i].d.truncate(0);
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;

@@ -23,13 +23,13 @@ pub enum Regex {
 
 pub fn string(string: &str) -> Option<Box<Regex>> {
     let mut it = string.bytes();
-    let mut reg = box Char(match it.next() {
+    let mut reg = Box::new(Char(match it.next() {
         Some(ch) => ch,
         None => return None
-    });
+    }));
 
     for ch in it {
-        reg = box Cat(reg, box Char(ch));
+        reg = Box::new( Cat(reg, Box::new (Char(ch))) );
     }
 
     Some(reg)

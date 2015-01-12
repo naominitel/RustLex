@@ -1,4 +1,4 @@
-#![feature(int_uint)]
+#![allow(unstable)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;

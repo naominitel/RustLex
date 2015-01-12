@@ -1,4 +1,4 @@
-#![feature(int_uint)]
+#![allow(unstable)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;
@@ -15,7 +15,7 @@ enum Token {
 }
 
 rustlex! PropertiesLexer {
-    property depth:int = 0;
+    property depth:isize = 0;
     let OPEN = '(';
     let CLOSE = ')';
     OPEN => |&: lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }

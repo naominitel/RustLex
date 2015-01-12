@@ -1,7 +1,6 @@
+#![allow(unstable)]
 #![feature(plugin_registrar)]
 #![feature(quote)]
-#![feature(box_syntax)]
-#![feature(int_uint)]
 
 #![crate_type="dylib"]
 #![crate_name="rustlex"]
@@ -35,7 +34,7 @@ pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTr
         args
     );
 
-    let def = box parser::parse(ident, &mut p);
+    let def = Box::new(parser::parse(ident, &mut p));
     let lex = lexer::Lexer::new(def, cx);
     lex.gen_code(cx, sp)
 }
@@ -44,6 +43,6 @@ pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTr
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_syntax_extension(
         token::intern("rustlex"),
-        IdentTT(box rustlex, None)
+        IdentTT(Box::new(rustlex), None)
     );
 }

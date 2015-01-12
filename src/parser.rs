@@ -107,7 +107,7 @@ fn get_properties<'a>(parser: &mut Parser) -> Vec<(Name, P<Ty>, P<Expr>)> {
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn get_char_class<T: Tokenizer>(parser: &mut T) -> Box<BinSetu8> {
-    let mut ret = box BinSetu8::new(256);
+    let mut ret = Box::new(BinSetu8::new(256));
     loop {
         let tok = parser.bump_and_get();
         match tok {
@@ -174,18 +174,18 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
-        token::Dot => box regex::Any,
+        token::Dot => Box::new(regex::Any),
         token::OpenDelim(token::Paren) => get_regex(parser,
             &token::CloseDelim(token::Paren), env),
         token::OpenDelim(token::Bracket) => {
             if parser.eat(&token::BinOp(token::Caret)) {
-                box regex::NotClass(get_char_class(parser))
+                Box::new(regex::NotClass(get_char_class(parser)))
             } else {
-                box regex::Class(get_char_class(parser))
+                Box::new(regex::Class(get_char_class(parser)))
             }
         }
         token::Literal(token::Lit::Char(ch), _) =>
-            box regex::Char(parse::char_lit(ch.as_str()).0 as u8),
+            Box::new(regex::Char(parse::char_lit(ch.as_str()).0 as u8)),
         token::Literal(token::Lit::Str_(id), _) =>
             match regex::string(token::get_name(id).get()) {
                 Some(reg) => reg,
@@ -196,7 +196,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
                 }
             },
         token::Ident(id, _) => match env.get(&id.name).cloned() {
-            Some(value) => box regex::Var(value),
+            Some(value) => Box::new(regex::Var(value)),
             None => {
                 let last_span = parser.last_span();
                 parser.span_fatal(last_span,
@@ -212,11 +212,11 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
 // the * operator has lower precedence that concatenation
 fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
     let reg = get_const(parser, env);
-    if parser.eat(&token::BinOp(token::Star)) { box regex::Closure(reg) }
+    if parser.eat(&token::BinOp(token::Star)) { Box::new(regex::Closure(reg)) }
     else if parser.eat(&token::BinOp(token::Plus)) {
-        box regex::Cat(reg.clone(), box regex::Closure(reg))
+        Box::new(regex::Cat(reg.clone(), Box::new(regex::Closure(reg))))
     }
-    else if parser.eat(&token::Question) { box regex::Maybe(reg) }
+    else if parser.eat(&token::Question) { Box::new(regex::Maybe(reg)) }
     else { reg }
 }
 
@@ -232,7 +232,7 @@ fn get_concat<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
         opl
     } else {
         let opr = get_concat(parser, end, env);
-        box regex::Cat(opl, opr)
+        Box::new(regex::Cat(opl, opr))
     }
 }
 
@@ -251,7 +251,7 @@ fn get_regex<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
     else {
         parser.expect(&token::BinOp(token::Or));
         let right = get_regex(parser, end, env);
-        box regex::Or(left, right)
+        Box::new(regex::Or(left, right))
     }
 }
 
@@ -272,7 +272,7 @@ fn get_pattern(parser: &mut Parser, env: &Env) -> (Ident, Box<Regex>) {
 // definition, otherwise return the "environment" containing named
 // regular expression definitions
 fn get_definitions(parser: &mut Parser) -> Box<Env> {
-    let mut ret = box HashMap::new();
+    let mut ret = Box::new(HashMap::new());
     while parser.eat_keyword(keywords::Let) {
         let (id, pat) = get_pattern(parser, &*ret);
         ret.insert(id.name, Rc::new(*pat));
@@ -304,7 +304,7 @@ fn get_conditions(parser: &mut Parser, env: &Env) -> Vec<Condition> {
     // remember the names of the conditions we already
     // encountered and where we stored their rules in
     // the conditions array
-    let mut cond_names: HashMap<Name, uint> = HashMap::new();
+    let mut cond_names: HashMap<Name, usize> = HashMap::new();
     let mut ret = Vec::new();
     let initial = Condition {
         name: token::intern("INITIAL"),
