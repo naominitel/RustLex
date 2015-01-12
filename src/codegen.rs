@@ -148,12 +148,13 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
     for act in acts.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
         let pat = cx.pat_lit(sp, pat_expr);
-        let arm = cx.arm(sp, vec!(pat), act.clone());
+        let new_act = act.clone();
+        let arm = cx.arm(sp, vec!(pat), quote_expr!(&*cx, (box $new_act) as Box<Fn(_) -> _>));
         arms.push(arm);
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, |:lexer:&mut $ident<R>| {
+    let def_act = quote_expr!(&*cx, Box::new(|&:lexer:&mut $ident<R>| {
         // default action is printing on stdout
         lexer._input.pos = lexer._input.tok;
         lexer._input.pos.off += 1;
@@ -161,7 +162,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
             lexer._input.tok.buf].get(lexer._input.tok.off);
         print!("{}", *b as char);
         None
-    });
+    }) as Box<Fn(_) -> _>);
 
     let def_pat = cx.pat_wild(sp);
     arms.push(cx.arm(sp, vec!(def_pat), def_act));
@@ -299,6 +300,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let i2 = (quote_item!(cx,
     impl <R: ::std::io::Reader> Iterator for $ident<R> {
         type Item = $tokens;
+
         fn next(&mut self) -> Option<$tokens> {
             loop {
                 self._input.tok = self._input.pos;
@@ -332,7 +334,6 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
                 // execute action corresponding to found state
                 let action_result = $actions_match(self) ;
-                debug!("action returned {}", action_result);
 
                 match action_result {
                     Some(token) => return Some(token),

@@ -1,4 +1,6 @@
+#![allow(unstable)]
 #![feature(plugin)]
+
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
@@ -39,18 +41,16 @@ rustlex! ComplexLexer {
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
-    //INT => |lexer:&mut ComplexLexer<R>| Some(TokInt(from_str::<u32>(lexer.yystr().as_slice()).unwrap()))
-    INT => |lexer:&mut ComplexLexer<R>| lexer.yystr().as_slice().parse::<u32>().map( |x| TokInt(x) )
-    HEX => |lexer:&mut ComplexLexer<R>| {
+    INT => |&: lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr().as_slice().parse().unwrap()))
+    HEX => |&: lexer:&mut ComplexLexer<R>| {
         let s = lexer.yystr();
         let s = s.as_slice();
         let i:u32 = ::std::num::from_str_radix(s.slice(2, s.len()-1), 16).unwrap();
         Some(TokInt(i))
     }
-    //FLTCONST => |lexer:&mut ComplexLexer<R>| Some(TokFloat(from_str::<f32>(lexer.yystr().as_slice()).unwrap()))
-    FLTCONST => |lexer:&mut ComplexLexer<R>| lexer.yystr().as_slice().parse::<f32>().map(|x| TokFloat(x))
-    ID => |lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
-    STR => |lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
+    FLTCONST => |&: lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr().as_slice().parse().unwrap()))
+    ID => |&: lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
+    STR => |&: lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
 }
 
 #[test]

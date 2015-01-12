@@ -1,3 +1,4 @@
+use std::iter;
 use nfa;
 use std::result;
 use util;

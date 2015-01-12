@@ -1,4 +1,6 @@
+#![allow(unstable)]
 #![feature(plugin)]
+
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
@@ -16,8 +18,8 @@ rustlex! PropertiesLexer {
     property depth:isize = 0;
     let OPEN = '(';
     let CLOSE = ')';
-    OPEN => |lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
-    CLOSE => |lexer:&mut PropertiesLexer<R>| {
+    OPEN => |&: lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
+    CLOSE => |&: lexer:&mut PropertiesLexer<R>| {
         lexer.depth -= 1;
         if lexer.depth<0 { panic!("invalid parens nesting") };
         Some(Close) }
