@@ -21,9 +21,9 @@ When rust 1.0 will be out, we'll draft a procedure to statically generate lexer 
 Defining a lexical analyser is done using the `rustlex!` syntax extension. To made this syntax extension available, you first need to tell Rustc to load the RustLex library by adding the following at the top of your crate:
 
 ```rust
-#![feature(phase)]
-#[phase(plugin,link)] extern crate rustlex;
-#[phase(plugin,link)] extern crate log;
+#![feature(plugin)]
+#[plugin] extern crate rustlex;
+#[macro_use] extern crate log;
 ```
 
 You can then invoke the `rustlex!` macro anywhere. The macro will expand into a single lexer structure and implementation describing the lexical analyser.
@@ -40,7 +40,7 @@ rustlex! SimpleLexer {
     let A = 'a';
 
     // then rules
-    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 ```
 
