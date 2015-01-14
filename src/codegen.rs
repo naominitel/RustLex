@@ -95,8 +95,9 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         }
     });
 
-    let isp = cx.item_struct_poly(sp, ident,
-        ast::StructDef { ctor_id: None, fields: fields },
+    let isp = P(ast::Item { ident:ident, attrs:Vec::new(), id:ast::DUMMY_NODE_ID,
+        node: ast::ItemStruct(
+        P(ast::StructDef { ctor_id: None, fields: fields }),
         ast::Generics {
             lifetimes: Vec::new(),
             ty_params: ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
@@ -114,7 +115,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 predicates: Vec::new(),
             }
         }
-    );
+    ), vis: ast::Public, span:sp });
     isp
 }
 
@@ -260,8 +261,8 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let ident = lex.ident;
     let i1 = (quote_item!(cx,
     impl<R: ::std::io::Reader> $ident<R> {
-        fn new(reader:R) -> Box<$ident<R>> {
-            Box::new($init_expr)
+        pub fn new(reader:R) -> $ident<R> {
+            $init_expr
         }
 
         #[inline(always)] $follow_method

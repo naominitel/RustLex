@@ -44,7 +44,7 @@ fn test_conditions() {
     let inp = BufReader::new(str.as_bytes());
     let mut lexer = ConditionLexer::new(inp);
     let mut iter = expected.iter();
-    for tok in *lexer {
+    for tok in lexer {
         assert_eq!(iter.next().unwrap(), &tok);
     }
     assert_eq!(iter.next(), None);

@@ -26,7 +26,7 @@ fn test_simple() {
     let inp = BufReader::new(str.as_bytes());
     let mut lexer = SimpleLexer::new(inp);
     let mut iter = expected.iter();
-    for tok in *lexer {
+    for tok in lexer {
         assert!(iter.next().unwrap() == &tok);
     }
     assert!(iter.next() == None);
@@ -50,7 +50,7 @@ fn test_other() {
     let inp = BufReader::new(str.as_bytes());
     let mut lexer = OtherLexer::new(inp);
     let mut iter = expected.iter();
-    for tok in *lexer {
+    for tok in lexer {
         assert!(iter.next().unwrap() == &tok);
     }
     assert!(iter.next() == None);
