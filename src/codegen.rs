@@ -175,13 +175,13 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     //   of states in the FSM, which gives the transitions between states
     let ty_vec = cx.ty(sp, ast::TyFixedLengthVec(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_uint(sp, 256)));
+        cx.expr_usize(sp, 256)));
     let mut transtable = Vec::new();
 
     for st in lex.auto.states.iter() {
         let mut vec = Vec::new();
         for i in st.trans.iter() {
-            vec.push(cx.expr_uint(sp, *i));
+            vec.push(cx.expr_usize(sp, *i));
         }
         let trans_expr = cx.expr_vec(sp, vec);
         transtable.push(trans_expr);
@@ -189,7 +189,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
 
     let ty_transtable = cx.ty(sp, ast::TyFixedLengthVec(
         ty_vec,
-        cx.expr_uint(sp, lex.auto.states.len())));
+        cx.expr_usize(sp, lex.auto.states.len())));
 
     let transtable = cx.expr_vec(sp, transtable);
     let transtable = ast::ItemStatic(ty_transtable, ast::MutImmutable, transtable);
@@ -209,11 +209,11 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     //   each state
     let ty_acctable = cx.ty(sp, ast::TyFixedLengthVec(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_uint(sp, lex.auto.states.len())));
+        cx.expr_usize(sp, lex.auto.states.len())));
 
     let mut acctable = Vec::new();
     for st in lex.auto.states.iter() {
-        let acc_expr = cx.expr_uint(sp, st.action);
+        let acc_expr = cx.expr_usize(sp, st.action);
         acctable.push(acc_expr);
     }
     let acctable = cx.expr_vec(sp, acctable);
