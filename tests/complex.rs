@@ -70,7 +70,7 @@ fn test_complex() {
     let inp = BufReader::new(str.as_bytes());
     let mut lexer = ComplexLexer::new(inp);
     let mut iter = expected.iter();
-    for tok in *lexer {
+    for tok in lexer {
         let expect = iter.next().unwrap();
         assert!(expect == &tok);
     }

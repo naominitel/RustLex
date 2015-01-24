@@ -95,8 +95,9 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         }
     });
 
-    let isp = cx.item_struct_poly(sp, ident,
-        ast::StructDef { ctor_id: None, fields: fields },
+    let isp = P(ast::Item { ident:ident, attrs:Vec::new(), id:ast::DUMMY_NODE_ID,
+        node: ast::ItemStruct(
+        P(ast::StructDef { ctor_id: None, fields: fields }),
         ast::Generics {
             lifetimes: Vec::new(),
             ty_params: ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
@@ -114,7 +115,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 predicates: Vec::new(),
             }
         }
-    );
+    ), vis: ast::Public, span:sp });
     isp
 }
 
@@ -174,13 +175,13 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     //   of states in the FSM, which gives the transitions between states
     let ty_vec = cx.ty(sp, ast::TyFixedLengthVec(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_uint(sp, 256)));
+        cx.expr_usize(sp, 256)));
     let mut transtable = Vec::new();
 
     for st in lex.auto.states.iter() {
         let mut vec = Vec::new();
         for i in st.trans.iter() {
-            vec.push(cx.expr_uint(sp, *i));
+            vec.push(cx.expr_usize(sp, *i));
         }
         let trans_expr = cx.expr_vec(sp, vec);
         transtable.push(trans_expr);
@@ -188,7 +189,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
 
     let ty_transtable = cx.ty(sp, ast::TyFixedLengthVec(
         ty_vec,
-        cx.expr_uint(sp, lex.auto.states.len())));
+        cx.expr_usize(sp, lex.auto.states.len())));
 
     let transtable = cx.expr_vec(sp, transtable);
     let transtable = ast::ItemStatic(ty_transtable, ast::MutImmutable, transtable);
@@ -208,11 +209,11 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     //   each state
     let ty_acctable = cx.ty(sp, ast::TyFixedLengthVec(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_uint(sp, lex.auto.states.len())));
+        cx.expr_usize(sp, lex.auto.states.len())));
 
     let mut acctable = Vec::new();
     for st in lex.auto.states.iter() {
-        let acc_expr = cx.expr_uint(sp, st.action);
+        let acc_expr = cx.expr_usize(sp, st.action);
         acctable.push(acc_expr);
     }
     let acctable = cx.expr_vec(sp, acctable);
@@ -260,8 +261,8 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let ident = lex.ident;
     let i1 = (quote_item!(cx,
     impl<R: ::std::io::Reader> $ident<R> {
-        fn new(reader:R) -> Box<$ident<R>> {
-            Box::new($init_expr)
+        pub fn new(reader:R) -> $ident<R> {
+            $init_expr
         }
 
         #[inline(always)] $follow_method

@@ -55,7 +55,7 @@ The lexer will read characters from a standard rust `Reader` and implement a `To
 ```rust
 let inp = BufReader::new("aa".as_bytes());
 let mut lexer = SimpleLexer::new(inp);
-for tok in *lexer {
+for tok in lexer {
     ...
 }
 ```

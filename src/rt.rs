@@ -25,12 +25,12 @@ impl RustLexBuffer {
 
     #[inline(always)]
     pub fn slice(&self, from: usize, to: usize) -> &[u8] {
-        self.d.slice(from, to)
+        &self.d[from..to]
     }
 
     #[inline(always)]
     pub fn slice_from(&self, from: usize) -> &[u8] {
-        self.d.slice_from(from)
+        &self.d[from..]
     }
 }
 
