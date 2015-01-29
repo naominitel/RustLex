@@ -1,15 +1,14 @@
-#![allow(unstable)]
-#![feature(plugin)]
+#![feature(plugin,core,io,collections)]
 
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
-use std::io::BufReader;
+use std::old_io::BufReader;
 
 use self::Token::TokA;
 use self::TokenB::TokB;
 
-#[derive(PartialEq,Show)]
+#[derive(PartialEq,Debug)]
 enum Token {
     TokA(String),
 }
@@ -32,7 +31,7 @@ fn test_simple() {
     assert!(iter.next() == None);
 }
 
-#[derive(PartialEq,Show)]
+#[derive(PartialEq,Debug)]
 enum TokenB {
     TokB(String)
 }

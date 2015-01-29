@@ -56,9 +56,9 @@ impl<'a> Tokenizer for Parser<'a> {
     fn eat(&mut self, tok: &token::Token) -> bool { self.eat(tok) }
     fn expect(&mut self, tok: &token::Token) { self.expect(tok) }
     fn last_span(&self) -> Span { self.last_span }
-    fn span_fatal(&mut self, sp: Span, m: &str) -> ! { self.span_fatal(sp, m) }
-    fn unexpected(&mut self) -> ! { self.unexpected() }
-    fn unexpected_last(&mut self, tok: &token::Token) -> ! { self.unexpected_last(tok) }
+    fn span_fatal(&mut self, sp: Span, m: &str) -> ! { Parser::span_fatal(self, sp, m) }
+    fn unexpected(&mut self) -> ! { Parser::unexpected(self) }
+    fn unexpected_last(&mut self, tok: &token::Token) -> ! { Parser::unexpected_last(self, tok) }
 }
 
 // the "lexical" environment of regular expression definitions

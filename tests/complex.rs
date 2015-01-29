@@ -1,16 +1,16 @@
-#![allow(unstable)]
+#![feature(plugin,core,io,collections)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
-use std::io::BufReader;
+use std::old_io::BufReader;
 
 // The Token type is returned by the lexer function on
 // each call and must be declared in the same module
 // as where the rustlex! macro is invoked
 use self::Token::{TokInt, TokFloat, TokId, TokString};
-#[derive(PartialEq,Show)]
+#[derive(PartialEq,Debug)]
 enum Token {
     TokInt(u32),
     TokFloat(f32),

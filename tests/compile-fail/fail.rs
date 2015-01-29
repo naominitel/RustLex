@@ -16,7 +16,7 @@ rustlex!(
 
 fn main() {
     let str = "foo ";
-    let inp = strreader::reader(str) as Box<::std::io::Reader>;
+    let inp = strreader::reader(str) as Box<::std::old_io::Reader>;
     let mut lexer = Lexer::new(inp);
 
     for tok in lexer {

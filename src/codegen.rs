@@ -105,7 +105,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
                     cx.typarambound(cx.path_global(sp, vec!(
                         ast::Ident::new(token::intern("std")),
-                        ast::Ident::new(token::intern("io")),
+                        ast::Ident::new(token::intern("old_io")),
                         ast::Ident::new(token::intern("Reader"))
                 ))))),
                 None)
@@ -134,7 +134,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
         span: sp,
         // FIXME:
         handler: diagnostic::mk_span_handler(
-            diagnostic::default_handler(diagnostic::Auto, None),
+            diagnostic::default_handler(diagnostic::Auto, None, true),
             CodeMap::new()
         ),
         items: items
@@ -260,7 +260,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
     let ident = lex.ident;
     let i1 = (quote_item!(cx,
-    impl<R: ::std::io::Reader> $ident<R> {
+    impl<R: ::std::old_io::Reader> $ident<R> {
         pub fn new(reader:R) -> $ident<R> {
             $init_expr
         }
@@ -299,7 +299,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
     let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
     let i2 = (quote_item!(cx,
-    impl <R: ::std::io::Reader> Iterator for $ident<R> {
+    impl <R: ::std::old_io::Reader> Iterator for $ident<R> {
         type Item = $tokens;
 
         fn next(&mut self) -> Option<$tokens> {
