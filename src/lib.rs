@@ -1,5 +1,4 @@
-#![allow(unstable)]
-#![feature(plugin_registrar)]
+#![feature(plugin_registrar,rustc_private,collections,core,io)]
 #![feature(quote)]
 
 #![crate_type="dylib"]

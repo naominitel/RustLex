@@ -1,14 +1,14 @@
-#![allow(unstable)]
+#![feature(plugin,core,io,collections)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
-use std::io::BufReader;
+use std::old_io::BufReader;
 
 use self::Token::{TokOuterStuff, TokInnerStuff};
 
-#[derive(PartialEq,Show)]
+#[derive(PartialEq,Debug)]
 enum Token {
     TokOuterStuff(String),
     TokInnerStuff(String)

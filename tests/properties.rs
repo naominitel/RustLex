@@ -1,14 +1,14 @@
-#![allow(unstable)]
+#![feature(plugin,core,io)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;
 #[macro_use] extern crate log;
 
-use std::io::BufReader;
+use std::old_io::BufReader;
 
 use self::Token::{Open,Close};
 
-#[derive(PartialEq,Show)]
+#[derive(PartialEq,Debug)]
 enum Token {
     Open,
     Close

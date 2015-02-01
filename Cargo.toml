@@ -7,3 +7,6 @@ authors = ["Naomi Nitel <naominitel@gmail.com", "Mathieu Poumeyrol <kali@zoy.org
 [lib]
 name = "rustlex"
 crate-type = ["dylib"]
+
+[dependencies]
+log = "0.2"

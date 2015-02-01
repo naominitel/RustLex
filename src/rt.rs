@@ -55,7 +55,7 @@ pub struct RustLexLexer<R : Reader> {
     pub tok: RustLexPos
 }
 
-impl<R: ::std::io::Reader> RustLexLexer<R> {
+impl<R: ::std::old_io::Reader> RustLexLexer<R> {
     fn fill_buf(&mut self) {
         let &mut RustLexBuffer {
             ref mut d,
