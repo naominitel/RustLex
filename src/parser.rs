@@ -144,7 +144,6 @@ fn get_char_class<T: Tokenizer>(parser: &mut T) -> Box<BinSetu8> {
 
             token::Literal(token::Lit::Str_(id),_) => {
                 let s = token::get_name(id);
-                let s = s.get();
                 if s.len() == 0 {
                     let last_span = parser.last_span();
                     parser.span_fatal(last_span,
@@ -187,7 +186,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
         token::Literal(token::Lit::Char(ch), _) =>
             Box::new(regex::Char(parse::char_lit(ch.as_str()).0 as u8)),
         token::Literal(token::Lit::Str_(id), _) =>
-            match regex::string(token::get_name(id).get()) {
+            match regex::string(&*token::get_name(id)) {
                 Some(reg) => reg,
                 None => {
                     let last_span = parser.last_span();
@@ -200,8 +199,8 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
             None => {
                 let last_span = parser.last_span();
                 parser.span_fatal(last_span,
-                format!("unknown identifier: {}", 
-                    token::get_name(id.name).get()).as_slice())
+                format!("unknown identifier: {}",
+                    token::get_name(id.name)).as_slice())
             }
         },
         _ => parser.unexpected_last(&tok)

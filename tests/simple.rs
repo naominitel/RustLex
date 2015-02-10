@@ -23,7 +23,7 @@ fn test_simple() {
     let expected = vec!(TokA(String::from_str("a")), TokA(String::from_str("a")));
     let str = "aa";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = SimpleLexer::new(inp);
+    let lexer = SimpleLexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {
         assert!(iter.next().unwrap() == &tok);
@@ -47,7 +47,7 @@ fn test_other() {
     let expected = vec!(TokB(String::from_str("b")), TokB(String::from_str("b")));
     let str = "bb";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = OtherLexer::new(inp);
+    let lexer = OtherLexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {
         assert!(iter.next().unwrap() == &tok);

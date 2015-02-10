@@ -1,4 +1,4 @@
-#![feature(plugin,core,io,collections)]
+#![feature(plugin,core,io)]
 #![feature(plugin)]
 
 #[plugin] extern crate rustlex;
@@ -42,7 +42,7 @@ fn test_conditions() {
                         TokInnerStuff("inner".to_string()));
     let str = "outer { inner }";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = ConditionLexer::new(inp);
+    let lexer = ConditionLexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {
         assert_eq!(iter.next().unwrap(), &tok);
