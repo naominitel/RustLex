@@ -1,7 +1,8 @@
-#![feature(plugin,core,io,collections)]
-#![feature(plugin)]
+#![feature(plugin,io,collections)]
+#![plugin(rustlex)]
 
-#[plugin] extern crate rustlex;
+extern crate rustlex;
+
 #[macro_use] extern crate log;
 
 use std::old_io::BufReader;
@@ -68,7 +69,7 @@ fn test_complex() {
         TokId(String::from_str("foo")));
     let str = "foo bar baz 0.10 212 \"a\" 0x121u baz 123foo ";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = ComplexLexer::new(inp);
+    let lexer = ComplexLexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {
         let expect = iter.next().unwrap();

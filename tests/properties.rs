@@ -1,7 +1,8 @@
 #![feature(plugin,core,io)]
-#![feature(plugin)]
+#![plugin(rustlex)]
 
-#[plugin] extern crate rustlex;
+extern crate rustlex;
+
 #[macro_use] extern crate log;
 
 use std::old_io::BufReader;

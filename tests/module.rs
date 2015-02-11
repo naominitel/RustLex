@@ -1,7 +1,8 @@
-#![feature(plugin,core,io,collections)]
-#![feature(plugin)]
+#![feature(plugin,io,collections)]
+#![plugin(rustlex)]
 
-#[plugin] extern crate rustlex;
+extern crate rustlex;
+
 #[macro_use] extern crate log;
 
 mod l {
