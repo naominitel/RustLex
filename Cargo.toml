@@ -1,7 +1,7 @@
 [package]
 
 name = "rustlex"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Naomi Nitel <naominitel@gmail.com>", "Mathieu Poumeyrol <kali@zoy.org>"]
 description = "Lexical analysers generator for Rust, written in Rust"
 homepage = "https://github.com/naominitel/rustlex"
@@ -13,6 +13,3 @@ license = "MIT"
 [lib]
 name = "rustlex"
 crate-type = ["dylib"]
-
-[dependencies]
-#log = "0.2.5"
