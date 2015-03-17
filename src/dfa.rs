@@ -49,10 +49,9 @@ impl Automaton {
             let next = unmarked.pop().unwrap();
             let moves = nfa.moves(&*self.states[next].states);
 
-            let mut ch = 0u8;
+            let mut ch = 0usize;
             'g: for dst in moves.into_iter() {
                 let clos = nfa.eclosure(dst.as_slice());
-
                 if clos.is_empty() {
                     ch += 1;
                     continue;
@@ -71,11 +70,11 @@ impl Automaton {
 
                 match dst {
                     // in any case, add a transition
-                    Some(i) => self.states[next].trans[ch as usize] = i,
+                    Some(i) => self.states[next].trans[ch] = i,
                     None => {
                         // create a new DFA state for this set
                         let st = self.create_state(clos.action(), Some(clos));
-                        self.states[next].trans[ch as usize] = st;
+                        self.states[next].trans[ch] = st;
                         unmarked.push(st);
                     }
                 }
@@ -104,7 +103,7 @@ impl Automaton {
             trans: [0; 256],
             states: match states {
                 Some(s) => s,
-                None => Box::new(util::BinSet::new(0us))
+                None => Box::new(util::BinSet::new(0usize))
             },
             action: act
         });
@@ -153,7 +152,7 @@ impl Automaton {
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
-                    for i in range(0, 255us) {
+                    for i in range(0, 255usize) {
                         let (s1, s2) = (
                             self.states[st].trans[i],
                             self.states[s].trans[i]
@@ -234,7 +233,7 @@ impl Automaton {
             // adjust transitions
             // the new state transitions to the representing state of the group
             // that contains the state to which is previously transitionned
-            let mut ch = 0us;
+            let mut ch = 0usize;
             for t in st.trans.iter() {
                 match *t {
                     0 => state.trans[ch] = 0,
@@ -265,7 +264,7 @@ impl Automaton {
         writeln!(out, "\tsize = \"4,4\";");
         writeln!(out, "\tnode [shape=box]; {};", self.initial);
 
-        let mut i = 0us;
+        let mut i = 0usize;
 
         // outputs final states as doublecircle-shaped nodes
         for st in self.states.iter() {
@@ -279,9 +278,9 @@ impl Automaton {
 
         writeln!(out, "\tnode [shape=circle];");
 
-        let mut i = 0us;
+        let mut i = 0usize;
         for st in self.states.iter() {
-            for ch in range(0, 256us) {
+            for ch in range(0, 256usize) {
                 match st.trans[ch] {
                     0 => (),
                     dst => {

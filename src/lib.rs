@@ -42,6 +42,6 @@ pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTr
 pub fn plugin_registrar(reg: &mut Registry) {
     reg.register_syntax_extension(
         token::intern("rustlex"),
-        IdentTT(Box::new(rustlex), None)
+        IdentTT(Box::new(rustlex), None, false)
     );
 }

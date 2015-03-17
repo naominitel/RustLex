@@ -1,9 +1,7 @@
-#![feature(plugin,io,collections)]
+#![feature(plugin,io,collections,box_syntax,main)]
 #![plugin(rustlex)]
 
 extern crate rustlex;
-
-#[macro_use] extern crate log;
 
 use std::old_io::BufReader;
 
@@ -11,13 +9,13 @@ use self::Token::TokA;
 use self::TokenB::TokB;
 
 #[derive(PartialEq,Debug)]
-enum Token {
+pub enum Token {
     TokA(String),
 }
 
 rustlex! SimpleLexer {
     let A = 'a';
-    A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
 #[test]
@@ -34,14 +32,14 @@ fn test_simple() {
 }
 
 #[derive(PartialEq,Debug)]
-enum TokenB {
+pub enum TokenB {
     TokB(String)
 }
 
 rustlex! OtherLexer {
     token TokenB;
     let B = 'b';
-    B => |&: lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
+    B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 
 #[test]

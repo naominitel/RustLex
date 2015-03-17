@@ -1,4 +1,4 @@
-#![feature(plugin,core,io)]
+#![feature(plugin,core,io,box_syntax)]
 #![plugin(rustlex)]
 
 extern crate rustlex;
@@ -10,7 +10,7 @@ use std::old_io::BufReader;
 use self::Token::{Open,Close};
 
 #[derive(PartialEq,Debug)]
-enum Token {
+pub enum Token {
     Open,
     Close
 }
@@ -19,8 +19,8 @@ rustlex! PropertiesLexer {
     property depth:isize = 0;
     let OPEN = '(';
     let CLOSE = ')';
-    OPEN => |&: lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
-    CLOSE => |&: lexer:&mut PropertiesLexer<R>| {
+    OPEN => |lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
+    CLOSE => |lexer:&mut PropertiesLexer<R>| {
         lexer.depth -= 1;
         if lexer.depth<0 { panic!("invalid parens nesting") };
         Some(Close) }
@@ -43,7 +43,7 @@ fn test_not_closed() {
 }
 
 #[test]
-#[should_fail]
+#[should_panic]
 fn test_not_open() {
     let inp = BufReader::new("(()))".as_bytes());
     let mut lexer = PropertiesLexer::new(inp);

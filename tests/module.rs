@@ -1,4 +1,4 @@
-#![feature(plugin,io,collections)]
+#![feature(plugin,io,collections,box_syntax)]
 #![plugin(rustlex)]
 
 extern crate rustlex;
@@ -15,7 +15,7 @@ mod l {
 
     rustlex! SimpleLexer {
         let A = 'a';
-        A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+        A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
     }
 }
 

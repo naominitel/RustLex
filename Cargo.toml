@@ -15,4 +15,4 @@ name = "rustlex"
 crate-type = ["dylib"]
 
 [dependencies]
-log = "0.2"
+#log = "0.2.5"

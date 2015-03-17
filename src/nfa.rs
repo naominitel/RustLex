@@ -52,7 +52,7 @@ pub struct Automaton {
 pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, usize)>) -> Box<Automaton> {
     let mut ret = Box::new(Automaton {
         states: Vec::new(),
-        initial: 0us
+        initial: 0usize
     });
 
     let ini = ret.create_state();
@@ -199,7 +199,7 @@ impl Automaton {
 
     pub fn moves(&self, st: &BinSet) -> Vec<Vec<usize>> {
         let mut ret = Vec::new();
-        for _ in range(0, 256us) {
+        for _ in range(0, 256usize) {
             ret.push(vec!());
         }
 
@@ -214,7 +214,7 @@ impl Automaton {
                     let mut chk = data[0];
                     let mut i = 0;
 
-                    for ch in range(0, 256us) {
+                    for ch in range(0, 256usize) {
                         if (ch & 0x3F) == 0 {
                             chk = data[i];
                             i += 1;
@@ -228,7 +228,7 @@ impl Automaton {
                     }
                 }
                 (svec::Any, dst) =>
-                    for ch in range(0, 256us) {
+                    for ch in range(0, 256usize) {
                         ret[ch].push(dst);
                     },
                 (svec::One(ch), dst) => ret[ch as usize].push(dst),

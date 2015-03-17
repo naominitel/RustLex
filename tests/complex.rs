@@ -1,4 +1,4 @@
-#![feature(plugin,io,collections)]
+#![feature(plugin,io,collections,box_syntax)]
 #![plugin(rustlex)]
 
 extern crate rustlex;
@@ -12,7 +12,7 @@ use std::old_io::BufReader;
 // as where the rustlex! macro is invoked
 use self::Token::{TokInt, TokFloat, TokId, TokString};
 #[derive(PartialEq,Debug)]
-enum Token {
+pub enum Token {
     TokInt(u32),
     TokFloat(f32),
     TokId(String),
@@ -42,16 +42,16 @@ rustlex! ComplexLexer {
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
-    INT => |&: lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr().as_slice().parse().unwrap()))
-    HEX => |&: lexer:&mut ComplexLexer<R>| {
+    INT => |lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr().as_slice().parse().unwrap()))
+    HEX => |lexer:&mut ComplexLexer<R>| {
         let s = lexer.yystr();
         let s = s.as_slice();
         let i:u32 = ::std::num::from_str_radix(s.slice(2, s.len()-1), 16).unwrap();
         Some(TokInt(i))
     }
-    FLTCONST => |&: lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr().as_slice().parse().unwrap()))
-    ID => |&: lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
-    STR => |&: lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
+    FLTCONST => |lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr().as_slice().parse().unwrap()))
+    ID => |lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
+    STR => |lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
 }
 
 #[test]

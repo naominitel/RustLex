@@ -2,7 +2,6 @@ use lexer::Lexer;
 use lexer::Prop;
 use syntax::ast;
 use syntax::ast::Ident;
-use syntax::ast::Method;
 use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
@@ -144,7 +143,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
 pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
     let mut arms = Vec::with_capacity(acts.len());
-    let mut i = 1us;
+    let mut i = 1usize;
 
     for act in acts.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
@@ -155,7 +154,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, Box::new(|&:lexer:&mut $ident<R>| {
+    let def_act = quote_expr!(&*cx, Box::new(|lexer:&mut $ident<R>| {
         // default action is printing on stdout
         lexer._input.pos = lexer._input.tok;
         lexer._input.pos.off += 1;
@@ -170,7 +169,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
     cx.expr_match(sp, match_expr, arms)
 }
 
-fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
+fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     // * transtable: an array of N arrays of 256 uints, N being the number
     //   of states in the FSM, which gives the transitions between states
     let ty_vec = cx.ty(sp, ast::TyFixedLengthVec(
@@ -196,15 +195,19 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     let transtable = cx.item(sp, cx.ident_of("TRANSITION_TABLE"), Vec::new(),
             transtable);
 
-    quote_method!(cx,
-        fn follow(&self, current_state:usize, symbol:usize) -> usize {
-            $transtable
-            return TRANSITION_TABLE[current_state][symbol];
+    let ident = lex.ident;
+    quote_item!(cx,
+        impl<R: ::std::old_io::Reader> $ident<R> {
+            #[inline(always)]
+            fn follow(&self, current_state:usize, symbol:usize) -> usize {
+                $transtable
+                return TRANSITION_TABLE[current_state][symbol];
+            }
         }
-    )
+    ).unwrap()
 }
 
-fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
+fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     // * accepting: an array of N uints, giving the action associated to
     //   each state
     let ty_acctable = cx.ty(sp, ast::TyFixedLengthVec(
@@ -221,12 +224,16 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<Method> {
     let acctable = cx.item(sp, cx.ident_of("ACCEPTING"), Vec::new(),
             acctable);
 
-    quote_method!(cx,
-        fn accepting(&self, state:usize) -> usize {
-            $acctable
-            return ACCEPTING[state];
+    let ident = lex.ident;
+    quote_item!(cx,
+        impl<R: ::std::old_io::Reader> $ident<R> {
+            #[inline(always)]
+            fn accepting(&self, state:usize) -> usize {
+                $acctable
+                return ACCEPTING[state];
+            }
         }
-    )
+    ).unwrap()
 }
 
 pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Item>> {
@@ -245,106 +252,105 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
     let init_expr = cx.expr_struct_ident(sp, lex.ident, fields);
 
-    let follow_method:P<Method> = simple_follow_method(cx, sp, lex);
-    let accepting_method:P<Method> = simple_accepting_method(cx, sp, lex);
-
-    let conditions:Vec<P<Method>> = lex.conditions.iter().map(|&(cond,st)| {
+    let ident = lex.ident;
+    // condition methods
+    let mut items:Vec<P<ast::Item>> = lex.conditions.iter().map(|&(cond,st)| {
         let cond = ast::Ident::new(cond);
-        quote_method!(&*cx,
-            #[inline(always)]
-            #[allow(dead_code)]
-            #[allow(non_snake_case)]
-            fn $cond(&mut self) { self._state = $st; }
-        )
+        quote_item!(cx,
+            impl<R: ::std::old_io::Reader> $ident<R> {
+                #[inline(always)]
+                #[allow(dead_code)]
+                #[allow(non_snake_case)]
+                fn $cond(&mut self) { self._state = $st; }
+            }
+        ).unwrap()
     }).collect();
 
-    let ident = lex.ident;
-    let i1 = (quote_item!(cx,
-    impl<R: ::std::old_io::Reader> $ident<R> {
-        pub fn new(reader:R) -> $ident<R> {
-            $init_expr
-        }
+    items.push(quote_item!(cx,
+        impl<R: ::std::old_io::Reader> $ident<R> {
+            pub fn new(reader:R) -> $ident<R> {
+                $init_expr
+            }
 
-        #[inline(always)] $follow_method
-        #[inline(always)] $accepting_method
-        $conditions
+            #[allow(dead_code)]
+            fn yystr(&mut self) -> String {
+                let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
+                let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
+                if buf == nbuf {
+                    let slice:&[u8] = self._input.inp[buf].slice(off, noff);
+                    String::from_utf8(slice.to_vec()).unwrap()
+                } else {
+                    // create a strbuf
+                    let mut yystr:Vec<u8> = vec!();
 
-        #[allow(dead_code)]
-        fn yystr(&mut self) -> String {
-            let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
-            let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
-            if buf == nbuf {
-                let slice:&[u8] = self._input.inp[buf].slice(off, noff);
-                String::from_utf8(slice.to_vec()).unwrap()
-            } else {
-                // create a strbuf
-                let mut yystr:Vec<u8> = vec!();
+                    // unsafely pushes all bytes onto the buf
+                    let iter = self._input.inp.slice(buf + 1, nbuf).iter();
+                    let iter = iter.flat_map(|v| v.as_slice().iter());
+                    let iter = iter.chain(self._input.inp[nbuf]
+                        .slice(0, noff).iter());
 
-                // unsafely pushes all bytes onto the buf
-                let iter = self._input.inp.slice(buf + 1, nbuf).iter();
-                let iter = iter.flat_map(|v| v.as_slice().iter());
-                let iter = iter.chain(self._input.inp[nbuf]
-                    .slice(0, noff).iter());
-
-                let mut iter = self._input.inp[buf].slice_from(off)
-                    .iter().chain(iter);
-                for j in iter {
-                    yystr.push(*j)
+                    let mut iter = self._input.inp[buf].slice_from(off)
+                        .iter().chain(iter);
+                    for j in iter {
+                        yystr.push(*j)
+                    }
+                    String::from_utf8(yystr).unwrap()
                 }
-                String::from_utf8(yystr).unwrap()
             }
         }
-    }
-    )).unwrap();
+    ).unwrap());
+
+    items.push(simple_follow_method(cx, sp, lex));
+    items.push(simple_accepting_method(cx, sp, lex));
 
     let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
-    let i2 = (quote_item!(cx,
-    impl <R: ::std::old_io::Reader> Iterator for $ident<R> {
-        type Item = $tokens;
+    items.push(quote_item!(cx,
+        impl <R: ::std::old_io::Reader> Iterator for $ident<R> {
+            type Item = $tokens;
 
-        fn next(&mut self) -> Option<$tokens> {
-            loop {
-                self._input.tok = self._input.pos;
-                self._input.advance = self._input.pos;
-                let mut last_matching_action = 0;
-                let mut current_st = self._state;
+            fn next(&mut self) -> Option<$tokens> {
+                loop {
+                    self._input.tok = self._input.pos;
+                    self._input.advance = self._input.pos;
+                    let mut last_matching_action = 0;
+                    let mut current_st = self._state;
 
-                while current_st != 0 {
-                    let i = match self._input.getchar() {
-                        None if self._input.tok ==
-                                self._input.pos => return None,
-                        Some(i) => i,
-                        _ => break
-                    };
+                    while current_st != 0 {
+                        let i = match self._input.getchar() {
+                            None if self._input.tok ==
+                                    self._input.pos => return None,
+                            Some(i) => i,
+                            _ => break
+                        };
 
-                    let new_st:usize = self.follow(current_st, i as usize);
-                    let action_id:usize = self.accepting(new_st);
+                        let new_st:usize = self.follow(current_st, i as usize);
+                        let action_id:usize = self.accepting(new_st);
 
-                    if action_id != 0 {
-                        self._input.advance = self._input.pos;
+                        if action_id != 0 {
+                            self._input.advance = self._input.pos;
 
-                        // final state
-                        last_matching_action = action_id;
+                            // final state
+                            last_matching_action = action_id;
+                        }
+
+                        current_st = new_st;
                     }
 
-                    current_st = new_st;
+                    // go back to last matching state in the input
+                    self._input.pos = self._input.advance;
+
+                    // execute action corresponding to found state
+                    let action_result = $actions_match(self) ;
+
+                    match action_result {
+                        Some(token) => return Some(token),
+                        None => ()
+                    };
+                    // if the user code did not return, continue
                 }
-
-                // go back to last matching state in the input
-                self._input.pos = self._input.advance;
-
-                // execute action corresponding to found state
-                let action_result = $actions_match(self) ;
-
-                match action_result {
-                    Some(token) => return Some(token),
-                    None => ()
-                };
-                // if the user code did not return, continue
             }
         }
-    }
-    )).unwrap();
-    vec!(i1,i2)
+    ).unwrap());
+    items
 }
 
