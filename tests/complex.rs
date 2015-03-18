@@ -1,11 +1,12 @@
-#![feature(plugin,io,collections,box_syntax)]
+#![feature(core,rustc_private,plugin,collections,box_syntax)]
 #![plugin(rustlex)]
 
+#[allow(plugin_as_library)]
 extern crate rustlex;
 
 #[macro_use] extern crate log;
 
-use std::old_io::BufReader;
+use std::io::BufReader;
 
 // The Token type is returned by the lexer function on
 // each call and must be declared in the same module
@@ -46,7 +47,7 @@ rustlex! ComplexLexer {
     HEX => |lexer:&mut ComplexLexer<R>| {
         let s = lexer.yystr();
         let s = s.as_slice();
-        let i:u32 = ::std::num::from_str_radix(s.slice(2, s.len()-1), 16).unwrap();
+        let i:u32 = ::std::num::from_str_radix(&s[2 .. s.len()-1], 16).unwrap();
         Some(TokInt(i))
     }
     FLTCONST => |lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr().as_slice().parse().unwrap()))

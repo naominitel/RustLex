@@ -4,6 +4,7 @@ use std::result;
 use util;
 use syntax::ast;
 use std::iter::repeat;
+use std::io::Write;
 
 pub use self::MinimizationError::UnreachablePattern;
 
@@ -258,7 +259,7 @@ impl Automaton {
     #[allow(unused_must_use)]
     // outs the automaton as a dot file for graphviz
     // for debugging purposes
-    pub fn todot(&self, out: &mut Writer) {
+    pub fn todot(&self, out: &mut Write) {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");

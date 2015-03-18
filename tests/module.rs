@@ -1,6 +1,7 @@
-#![feature(plugin,io,collections,box_syntax)]
+#![feature(rustc_private,plugin,collections,box_syntax)]
 #![plugin(rustlex)]
 
+#[allow(plugin_as_library)]
 extern crate rustlex;
 
 #[macro_use] extern crate log;
@@ -22,7 +23,7 @@ mod l {
 mod t {
 
     use ::l::Token::TokA;
-    use std::old_io::BufReader;
+    use std::io::BufReader;
 
     #[test]
     fn test_simple() {
