@@ -4,12 +4,16 @@ use std::ops::IndexMut;
 const RUSTLEX_BUFSIZE: usize = 4096;
 
 pub struct RustLexBuffer {
-    d: Box<[u8; RUSTLEX_BUFSIZE]>,
-    len: usize,
+    d: Vec<u8>,
     valid: bool
 }
 
 impl RustLexBuffer {
+    #[inline(always)]
+    pub fn len(&self) -> usize {
+        self.d.len()
+    }
+
     #[inline(always)]
     pub fn get(&self, idx: usize) -> &u8 {
         &self.d[idx]
@@ -56,14 +60,18 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
     fn fill_buf(&mut self) {
         let &mut RustLexBuffer {
             ref mut d,
-            ref mut len,
             ref mut valid
         } = self.inp.index_mut(&self.pos.buf);
         *valid = true;
-        match self.stream.read(&mut ** d) {
-            Ok(l) => *len = l,
-            Err(_) => *len = 0,
+        // Grow to the correct bufsize
+        if d.len() < RUSTLEX_BUFSIZE {
+            d.resize(RUSTLEX_BUFSIZE, 0);
         }
+        // Shrink back down to however much was used.
+        match self.stream.read(&mut ** d) {
+            Ok(l) => d.resize(l, 0),
+            Err(_) => d.clear()
+        };
         self.pos.off = 0;
     }
 
@@ -82,7 +90,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                 let unused_buffers_count = self.tok.buf;
                 for i in range(0, unused_buffers_count) {
                     self.inp[i].valid = false;
-                    self.inp[i].d = Box::new([0; RUSTLEX_BUFSIZE]);
+                    self.inp[i].d = Vec::new();
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
@@ -94,15 +102,14 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                     // we couldn't free some space, we have to create a
                     // new buffer and add it to our vector
                     self.inp.push(RustLexBuffer {
-                        d: Box::new([0; RUSTLEX_BUFSIZE]),
-                        len: 0,
+                        d: Vec::new(),
                         valid: false
                     });
                 }
 
                 self.fill_buf();
             }
-        } else if self.pos.off >= self.inp[self.pos.buf].len {
+        } else if self.pos.off >= self.inp[self.pos.buf].len() {
             // the current buffer wasn't full, this mean this is
             // actually EOF
             return None
@@ -117,8 +124,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
         let mut lex = RustLexLexer {
             stream: stream,
             inp: vec!(RustLexBuffer{
-                d: Box::new([0; RUSTLEX_BUFSIZE]),
-                len: 0,
+                d: Vec::new(),
                 valid: false
             }),
             advance: RustLexPos {
