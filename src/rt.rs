@@ -86,7 +86,8 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
-                self.pos.buf -= unused_buffers_count - 1;
+                self.pos.buf += 1;
+                self.pos.buf -= unused_buffers_count;
                 self.advance.buf -= unused_buffers_count;
 
                 while self.pos.buf >= self.inp.len() {
