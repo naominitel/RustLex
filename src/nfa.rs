@@ -200,7 +200,7 @@ impl Automaton {
 
     pub fn moves(&self, st: &BinSet) -> Vec<Vec<usize>> {
         let mut ret = Vec::new();
-        for _ in range(0, 256usize) {
+        for _ in (0 .. 256usize) {
             ret.push(vec!());
         }
 
@@ -215,7 +215,7 @@ impl Automaton {
                     let mut chk = data[0];
                     let mut i = 0;
 
-                    for ch in range(0, 256usize) {
+                    for ch in (0 .. 256usize) {
                         if (ch & 0x3F) == 0 {
                             chk = data[i];
                             i += 1;
@@ -229,7 +229,7 @@ impl Automaton {
                     }
                 }
                 (svec::Any, dst) =>
-                    for ch in range(0, 256usize) {
+                    for ch in (0 .. 256usize) {
                         ret[ch].push(dst);
                     },
                 (svec::One(ch), dst) => ret[ch as usize].push(dst),
@@ -330,7 +330,7 @@ impl Automaton {
         write!(out, "\t");
 
         // outputs f1nal states as doublecircle-shaped nodes
-        for st in range(0, self.states.len()) {
+        for st in (0 .. self.states.len()) {
             if self.states[st].action != 0 {
                 write!(out, "{} ", st);
             }
@@ -339,7 +339,7 @@ impl Automaton {
         writeln!(out, ";\n");
         writeln!(out, "\tnode [shape=circle];");
 
-        for st in range(0, self.states.len()) {
+        for st in (0 .. self.states.len()) {
             match self.states[st].trans {
                 (svec::One(ch), dst) => {
                     let mut esc = String::new();

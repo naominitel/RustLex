@@ -88,7 +88,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                 // done cheaply because most analysers won't need more
                 // than a couple of buffers
                 let unused_buffers_count = self.tok.buf;
-                for i in range(0, unused_buffers_count) {
+                for i in (0 .. unused_buffers_count) {
                     self.inp[i].valid = false;
                     self.inp[i].d = Vec::new();
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
