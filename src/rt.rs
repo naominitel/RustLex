@@ -90,7 +90,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                 let unused_buffers_count = self.tok.buf;
                 for i in (0 .. unused_buffers_count) {
                     self.inp[i].valid = false;
-                    self.inp[i].d = Vec::new();
+                    self.inp[i].d.truncate(0);
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
@@ -102,7 +102,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                     // we couldn't free some space, we have to create a
                     // new buffer and add it to our vector
                     self.inp.push(RustLexBuffer {
-                        d: Vec::new(),
+                        d: Vec::with_capacity(RUSTLEX_BUFSIZE),
                         valid: false
                     });
                 }
@@ -124,7 +124,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
         let mut lex = RustLexLexer {
             stream: stream,
             inp: vec!(RustLexBuffer{
-                d: Vec::new(),
+                d: Vec::with_capacity(RUSTLEX_BUFSIZE),
                 valid: false
             }),
             advance: RustLexPos {
