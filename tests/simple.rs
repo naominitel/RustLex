@@ -1,9 +1,10 @@
-#![feature(plugin,io,collections,box_syntax,main)]
+#![feature(plugin,collections,box_syntax,main)]
 #![plugin(rustlex)]
 
+#[allow(plugin_as_library)]
 extern crate rustlex;
 
-use std::old_io::BufReader;
+use std::io::BufReader;
 
 use self::Token::TokA;
 use self::TokenB::TokB;

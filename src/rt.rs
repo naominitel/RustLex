@@ -1,6 +1,7 @@
+use std::io::Read;
 use std::ops::IndexMut;
 
-static RUSTLEX_BUFSIZE: usize = 4096;
+const RUSTLEX_BUFSIZE: usize = 4096;
 
 pub struct RustLexBuffer {
     d: Vec<u8>,
@@ -47,7 +48,7 @@ impl PartialEq for RustLexPos {
     }
 }
 
-pub struct RustLexLexer<R : Reader> {
+pub struct RustLexLexer<R : Read> {
     pub stream: R,
     pub inp: Vec<RustLexBuffer>,
     pub advance: RustLexPos,
@@ -55,14 +56,22 @@ pub struct RustLexLexer<R : Reader> {
     pub tok: RustLexPos
 }
 
-impl<R: ::std::old_io::Reader> RustLexLexer<R> {
+impl<R: ::std::io::Read> RustLexLexer<R> {
     fn fill_buf(&mut self) {
         let &mut RustLexBuffer {
             ref mut d,
             ref mut valid
         } = self.inp.index_mut(&self.pos.buf);
         *valid = true;
-        let _ = self.stream.push(RUSTLEX_BUFSIZE, d);
+        // Grow to the correct bufsize
+        if d.len() < RUSTLEX_BUFSIZE {
+            d.resize(RUSTLEX_BUFSIZE, 0);
+        }
+        // Shrink back down to however much was used.
+        match self.stream.read(&mut ** d) {
+            Ok(l) => d.resize(l, 0),
+            Err(_) => d.clear()
+        };
         self.pos.off = 0;
     }
 
@@ -81,18 +90,19 @@ impl<R: ::std::old_io::Reader> RustLexLexer<R> {
                 let unused_buffers_count = self.tok.buf;
                 for i in range(0, unused_buffers_count) {
                     self.inp[i].valid = false;
-                    self.inp[i].d.truncate(0);
+                    self.inp[i].d = Vec::new();
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
-                self.pos.buf -= unused_buffers_count - 1;
+                self.pos.buf += 1;
+                self.pos.buf -= unused_buffers_count;
                 self.advance.buf -= unused_buffers_count;
 
                 while self.pos.buf >= self.inp.len() {
                     // we couldn't free some space, we have to create a
                     // new buffer and add it to our vector
                     self.inp.push(RustLexBuffer {
-                        d: Vec::with_capacity(RUSTLEX_BUFSIZE),
+                        d: Vec::new(),
                         valid: false
                     });
                 }

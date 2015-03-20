@@ -1,11 +1,12 @@
-#![feature(plugin,core,io,box_syntax)]
+#![feature(rustc_private,plugin,box_syntax)]
 #![plugin(rustlex)]
 
+#[allow(plugin_as_library)]
 extern crate rustlex;
 
 #[macro_use] extern crate log;
 
-use std::old_io::BufReader;
+use std::io::BufReader;
 
 use self::Token::{TokOuterStuff, TokInnerStuff};
 

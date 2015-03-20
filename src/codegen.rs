@@ -104,8 +104,8 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
                     cx.typarambound(cx.path_global(sp, vec!(
                         ast::Ident::new(token::intern("std")),
-                        ast::Ident::new(token::intern("old_io")),
-                        ast::Ident::new(token::intern("Reader"))
+                        ast::Ident::new(token::intern("io")),
+                        ast::Ident::new(token::intern("Read"))
                 ))))),
                 None)
             )),
@@ -197,7 +197,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
 
     let ident = lex.ident;
     quote_item!(cx,
-        impl<R: ::std::old_io::Reader> $ident<R> {
+        impl<R: ::std::io::Read> $ident<R> {
             #[inline(always)]
             fn follow(&self, current_state:usize, symbol:usize) -> usize {
                 $transtable
@@ -226,7 +226,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item>
 
     let ident = lex.ident;
     quote_item!(cx,
-        impl<R: ::std::old_io::Reader> $ident<R> {
+        impl<R: ::std::io::Read> $ident<R> {
             #[inline(always)]
             fn accepting(&self, state:usize) -> usize {
                 $acctable
@@ -257,7 +257,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let mut items:Vec<P<ast::Item>> = lex.conditions.iter().map(|&(cond,st)| {
         let cond = ast::Ident::new(cond);
         quote_item!(cx,
-            impl<R: ::std::old_io::Reader> $ident<R> {
+            impl<R: ::std::io::Read> $ident<R> {
                 #[inline(always)]
                 #[allow(dead_code)]
                 #[allow(non_snake_case)]
@@ -267,12 +267,13 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     }).collect();
 
     items.push(quote_item!(cx,
-        impl<R: ::std::old_io::Reader> $ident<R> {
+        impl<R: ::std::io::Read> $ident<R> {
             pub fn new(reader:R) -> $ident<R> {
                 $init_expr
             }
 
             #[allow(dead_code)]
+            #[allow(unused_mut)]
             fn yystr(&mut self) -> String {
                 let ::rustlex::rt::RustLexPos { buf, off } = self._input.tok;
                 let ::rustlex::rt::RustLexPos { buf: nbuf, off: noff } = self._input.pos;
@@ -284,7 +285,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                     let mut yystr:Vec<u8> = vec!();
 
                     // unsafely pushes all bytes onto the buf
-                    let iter = self._input.inp.slice(buf + 1, nbuf).iter();
+                    let iter = self._input.inp[buf + 1 .. nbuf].iter();
                     let iter = iter.flat_map(|v| v.as_slice().iter());
                     let iter = iter.chain(self._input.inp[nbuf]
                         .slice(0, noff).iter());
@@ -305,7 +306,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
 
     let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
     items.push(quote_item!(cx,
-        impl <R: ::std::old_io::Reader> Iterator for $ident<R> {
+        impl <R: ::std::io::Read> Iterator for $ident<R> {
             type Item = $tokens;
 
             fn next(&mut self) -> Option<$tokens> {
