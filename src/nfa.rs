@@ -21,7 +21,7 @@ enum Etrans {
     More(Vec<usize>)
 }
 
-struct State {
+pub struct State {
     // the McNaughton-Yamada-Thompson
     // construction algorithm will build
     // NFAs whose states have 0, 1 or

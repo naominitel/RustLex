@@ -17,7 +17,7 @@ use syntax::util::small_vector::SmallVector;
 // struct returned by the code generator
 // implements a trait containing method called by libsyntax
 // on macro expansion
-struct CodeGenerator {
+pub struct CodeGenerator {
     // we need this to report
     // errors when the macro is
     // not called correctly

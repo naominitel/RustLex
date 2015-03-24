@@ -10,7 +10,7 @@ pub use self::MinimizationError::UnreachablePattern;
 
 /* deterministic finite automaton */
 
-struct State {
+pub struct State {
     // this is not strictly speaking
     // a DFA since there may be no
     // transitions for a given input
