@@ -52,7 +52,7 @@ impl Automaton {
 
             let mut ch = 0usize;
             'g: for dst in moves.into_iter() {
-                let clos = nfa.eclosure(dst.as_slice());
+                let clos = nfa.eclosure(&dst);
                 if clos.is_empty() {
                     ch += 1;
                     continue;

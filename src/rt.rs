@@ -21,7 +21,7 @@ impl RustLexBuffer {
 
     #[inline(always)]
     pub fn as_slice(&self) -> &[u8] {
-        self.d.as_slice()
+        &self.d
     }
 
     #[inline(always)]
@@ -61,7 +61,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
         let &mut RustLexBuffer {
             ref mut d,
             ref mut valid
-        } = self.inp.index_mut(&self.pos.buf);
+        } = self.inp.index_mut(self.pos.buf);
         *valid = true;
         // Grow to the correct bufsize
         if d.len() < RUSTLEX_BUFSIZE {

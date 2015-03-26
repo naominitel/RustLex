@@ -121,7 +121,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
 pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let mut items = Vec::new();
 
-    items.push(lexer_struct(cx, sp, lex.ident, lex.properties.as_slice()));
+    items.push(lexer_struct(cx, sp, lex.ident, &lex.properties));
 
     // functions of the Lexer and InputBuffer structs
     // TODO:
@@ -237,7 +237,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item>
 }
 
 pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Item>> {
-    let actions_match = actions_match(lex.actions.as_slice(), lex.ident, cx, sp);
+    let actions_match = actions_match(&lex.actions, lex.ident, cx, sp);
     let mut fields = Vec::with_capacity(lex.properties.len() + 1);
 
     for &(name, _, ref expr) in lex.properties.iter() {

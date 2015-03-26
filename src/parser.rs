@@ -199,8 +199,8 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> Box<Regex> {
             None => {
                 let last_span = parser.last_span();
                 parser.span_fatal(last_span,
-                format!("unknown identifier: {}",
-                    token::get_name(id.name)).as_slice())
+                &format!("unknown identifier: {}",
+                    token::get_name(id.name)))
             }
         },
         _ => parser.unexpected_last(&tok)
