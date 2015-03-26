@@ -1,7 +1,7 @@
 [package]
 
 name = "rustlex"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Naomi Nitel <naominitel@gmail.com>", "Mathieu Poumeyrol <kali@zoy.org>"]
 description = "Lexical analysers generator for Rust, written in Rust"
 homepage = "https://github.com/naominitel/rustlex"
