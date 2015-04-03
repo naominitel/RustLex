@@ -35,7 +35,7 @@ impl RustLexBuffer {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy,Clone)]
 pub struct RustLexPos {
     pub buf: usize,
     pub off: usize

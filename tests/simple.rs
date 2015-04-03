@@ -1,4 +1,4 @@
-#![feature(plugin,collections,box_syntax,main)]
+#![feature(plugin,collections,main)]
 #![plugin(rustlex)]
 
 #[allow(plugin_as_library)]

@@ -1,4 +1,4 @@
-#![feature(plugin_registrar,rustc_private,collections,core)]
+#![feature(plugin_registrar,rustc_private,collections,convert)]
 #![feature(quote)]
 
 #![crate_type="dylib"]

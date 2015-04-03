@@ -64,16 +64,16 @@ impl<'a> Tokenizer for Parser<'a> {
 // the "lexical" environment of regular expression definitions
 type Env = HashMap<Name, Rc<Regex>>;
 
-fn get_tokens<'a>(parser: &mut Parser) -> Option<Ident> {
+fn get_tokens<'a>(parser: &mut Parser) -> Ident {
     let tokens = token::intern("token");
     match parser.token {
         token::Ident(id, _) if id.name == tokens => {
             parser.bump();
-            let token = Some(parser.parse_ident());
+            let token = parser.parse_ident();
             parser.expect(&token::Semi);
             token
         }
-        _ => None
+        _ => Ident::new(token::intern("Token"))
     }
 }
 

@@ -1,4 +1,4 @@
-#![feature(rustc_private,plugin,box_syntax)]
+#![feature(rustc_private,plugin)]
 #![plugin(rustlex)]
 
 #[allow(plugin_as_library)]
@@ -23,7 +23,7 @@ rustlex! ConditionLexer {
     INITIAL {
         STUFF => |lexer: &mut ConditionLexer<R>|
             Some(TokOuterStuff(lexer.yystr().trim().to_string()))
-        OPEN => |lexer: &mut ConditionLexer<R>| {
+        OPEN => |lexer: &mut ConditionLexer<R>| -> Option<Token> {
             lexer.INNER();
             None
         }
@@ -31,7 +31,7 @@ rustlex! ConditionLexer {
     INNER {
         STUFF => |lexer: &mut ConditionLexer<R>|
             Some(TokInnerStuff(lexer.yystr().trim().to_string()))
-        CLOSE => |lexer: &mut ConditionLexer<R>| {
+        CLOSE => |lexer: &mut ConditionLexer<R>| -> Option<Token> {
             lexer.INITIAL();
             None
         }

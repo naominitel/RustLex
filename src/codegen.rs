@@ -51,7 +51,7 @@ pub fn lexer_field(sp: Span, name: ast::Ident, ty: P<ast::Ty>) -> ast::StructFie
         span: sp,
         node: ast::StructField_ {
             kind: ast::NamedField(name, ast::Public),
-            id: -1 as u32,
+            id: ast::DUMMY_NODE_ID,
             ty: ty,
             attrs: vec!()
         }
@@ -75,7 +75,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 ast::Ident::new(token::intern("_input")),
                 ast::Public
             ),
-            id: -1 as u32,
+            id: ast::DUMMY_NODE_ID,
             ty: quote_ty!(&*cx, ::rustlex::rt::RustLexLexer<R>),
             attrs: vec!()
         }
@@ -88,7 +88,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
                 ast::Ident::new(token::intern("_state")),
                 ast::Public
             ),
-            id: -1 as u32,
+            id: ast::DUMMY_NODE_ID,
             ty: quote_ty!(&*cx, usize),
             attrs: vec!()
         }
@@ -140,21 +140,26 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     })
 }
 
-pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
+pub fn actions_match(lex:&Lexer, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
     let match_expr = quote_expr!(&*cx, last_matching_action);
-    let mut arms = Vec::with_capacity(acts.len());
+    let mut arms = Vec::with_capacity(lex.actions.len());
     let mut i = 1usize;
 
-    for act in acts.iter().skip(1) {
+    let tokens = lex.tokens;
+    let ident = lex.ident;
+    let action_type = quote_ty!(&*cx,  Fn(&mut $ident<R>) -> Option<$tokens>);
+
+    for act in lex.actions.iter().skip(1) {
         let pat_expr = quote_expr!(&*cx, $i);
         let pat = cx.pat_lit(sp, pat_expr);
         let new_act = act.clone();
-        let arm = cx.arm(sp, vec!(pat), quote_expr!(&*cx, (box $new_act) as Box<Fn(_) -> _>));
+        let arm = cx.arm(sp, vec!(pat),
+            quote_expr!(&*cx, (Box::new($new_act)) as Box<$action_type>));
         arms.push(arm);
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, Box::new(|lexer:&mut $ident<R>| {
+    let def_act = quote_expr!(&*cx, Box::new(|lexer:&mut $ident<R>| -> Option<$tokens> {
         // default action is printing on stdout
         lexer._input.pos = lexer._input.tok;
         lexer._input.pos.off += 1;
@@ -162,7 +167,7 @@ pub fn actions_match(acts: &[P<ast::Expr>], ident:ast::Ident, cx: &mut ExtCtxt, 
             lexer._input.tok.buf].get(lexer._input.tok.off);
         print!("{}", *b as char);
         None
-    }) as Box<Fn(_) -> _>);
+    }) as Box<$action_type>);
 
     let def_pat = cx.pat_wild(sp);
     arms.push(cx.arm(sp, vec!(def_pat), def_act));
@@ -237,7 +242,7 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item>
 }
 
 pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Item>> {
-    let actions_match = actions_match(&lex.actions, lex.ident, cx, sp);
+    let actions_match = actions_match(lex, cx, sp);
     let mut fields = Vec::with_capacity(lex.properties.len() + 1);
 
     for &(name, _, ref expr) in lex.properties.iter() {
@@ -304,7 +309,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     items.push(simple_follow_method(cx, sp, lex));
     items.push(simple_accepting_method(cx, sp, lex));
 
-    let tokens = lex.tokens.unwrap_or(ast::Ident::new(token::intern("Token")));
+    let tokens = lex.tokens;
     items.push(quote_item!(cx,
         impl <R: ::std::io::Read> Iterator for $ident<R> {
             type Item = $tokens;
