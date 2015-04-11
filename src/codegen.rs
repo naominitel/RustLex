@@ -34,14 +34,18 @@ impl MacResult for CodeGenerator {
         Some(SmallVector::many(self.items.clone()))
     }
 
+    #[allow(unreachable_code,unused_must_use)]
     fn make_stmt(self:Box<CodeGenerator>) -> Option<P<ast::Stmt>> {
         self.handler.span_unimpl(self.span,
             "invoking rustlex on statement context is not implemented");
+        panic!("invoking rustlex on statement context is not implemented")
     }
 
+    #[allow(unreachable_code,unused_must_use)]
     fn make_expr(self:Box<CodeGenerator>) -> Option<P<ast::Expr>> {
         self.handler.span_fatal(self.span,
             "rustlex! invoked on expression context");
+        panic!("rustlex! invoked on expression context")
     }
 }
 
