@@ -30,12 +30,14 @@ pub struct CodeGenerator {
 
 
 impl MacResult for CodeGenerator {
-    fn make_items(self:Box<CodeGenerator>) -> Option<SmallVector<P<ast::Item>>> {
+    fn make_items(self:Box<CodeGenerator>)
+            -> Option<SmallVector<P<ast::Item>>> {
         Some(SmallVector::many(self.items.clone()))
     }
 
     #[allow(unreachable_code,unused_must_use)]
-    fn make_stmt(self:Box<CodeGenerator>) -> Option<P<ast::Stmt>> {
+    fn make_stmts(self:Box<CodeGenerator>)
+            -> Option<SmallVector<P<ast::Stmt>>> {
         self.handler.span_unimpl(self.span,
             "invoking rustlex on statement context is not implemented");
         panic!("invoking rustlex on statement context is not implemented")
