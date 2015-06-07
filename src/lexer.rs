@@ -33,7 +33,7 @@ pub type Prop = (Name, P<Ty>, P<Expr>);
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
-    pub tokens:     Option<Ident>,
+    pub tokens:     Ident,
     pub ident:      Ident,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
@@ -51,7 +51,7 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
-    tokens:Option<Ident>,
+    tokens:Ident,
     ident:Ident,
     auto: Box<dfa::Automaton>,
     actions: Vec<P<Expr>>,
@@ -70,7 +70,7 @@ impl Lexer {
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
         let mut acts = vec!(dummy_expr);
-        let mut id = 1us;
+        let mut id = 1usize;
 
         // now build the automatas and record
         // the initial state number for each

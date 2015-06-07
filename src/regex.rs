@@ -42,14 +42,14 @@ impl Regex {
         match self {
             &Or(ref l, ref r) => {
                 println!("{} Or of: ", span);
-                l.show(format!("  {}", span).as_slice());
-                r.show(format!("  {}", span).as_slice());
+                l.show(&format!("  {}", span));
+                r.show(&format!("  {}", span));
             }
 
             &Cat(ref l, ref r) => {
                 println!("{} Cat of: ", span);
-                l.show(format!("  {}", span).as_slice());
-                r.show(format!("  {}", span).as_slice());
+                l.show(&format!("  {}", span));
+                r.show(&format!("  {}", span));
             }
 
             &Maybe(ref reg) => {
@@ -59,7 +59,7 @@ impl Regex {
 
             &Closure(ref reg) => {
                 println!("{} The eclosure of", span);
-                reg.show(format!("  {}", span).as_slice())
+                reg.show(&format!("  {}", span))
             }
 
             &Var(ref reg) => {

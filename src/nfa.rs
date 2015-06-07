@@ -1,4 +1,5 @@
 use regex;
+use std::io::Write;
 use util::BinSet;
 use util::svec;
 
@@ -20,7 +21,7 @@ enum Etrans {
     More(Vec<usize>)
 }
 
-struct State {
+pub struct State {
     // the McNaughton-Yamada-Thompson
     // construction algorithm will build
     // NFAs whose states have 0, 1 or
@@ -52,7 +53,7 @@ pub struct Automaton {
 pub fn build_nfa(regexs: Vec<(Box<regex::Regex>, usize)>) -> Box<Automaton> {
     let mut ret = Box::new(Automaton {
         states: Vec::new(),
-        initial: 0us
+        initial: 0usize
     });
 
     let ini = ret.create_state();
@@ -199,7 +200,7 @@ impl Automaton {
 
     pub fn moves(&self, st: &BinSet) -> Vec<Vec<usize>> {
         let mut ret = Vec::new();
-        for _ in range(0, 256us) {
+        for _ in (0 .. 256usize) {
             ret.push(vec!());
         }
 
@@ -214,7 +215,7 @@ impl Automaton {
                     let mut chk = data[0];
                     let mut i = 0;
 
-                    for ch in range(0, 256us) {
+                    for ch in (0 .. 256usize) {
                         if (ch & 0x3F) == 0 {
                             chk = data[i];
                             i += 1;
@@ -228,7 +229,7 @@ impl Automaton {
                     }
                 }
                 (svec::Any, dst) =>
-                    for ch in range(0, 256us) {
+                    for ch in (0 .. 256usize) {
                         ret[ch].push(dst);
                     },
                 (svec::One(ch), dst) => ret[ch as usize].push(dst),
@@ -320,7 +321,7 @@ impl Automaton {
     #[allow(unused_must_use)]
     // outs the automaton as a dot file for graphviz
     // for debugging purposes
-    pub fn todot(&self, out: &mut Writer) {
+    pub fn todot(&self, out: &mut Write) {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
@@ -329,7 +330,7 @@ impl Automaton {
         write!(out, "\t");
 
         // outputs f1nal states as doublecircle-shaped nodes
-        for st in range(0, self.states.len()) {
+        for st in (0 .. self.states.len()) {
             if self.states[st].action != 0 {
                 write!(out, "{} ", st);
             }
@@ -338,7 +339,7 @@ impl Automaton {
         writeln!(out, ";\n");
         writeln!(out, "\tnode [shape=circle];");
 
-        for st in range(0, self.states.len()) {
+        for st in (0 .. self.states.len()) {
             match self.states[st].trans {
                 (svec::One(ch), dst) => {
                     let mut esc = String::new();

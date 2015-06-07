@@ -1,15 +1,17 @@
-#![feature(plugin,core,io,collections)]
-#![feature(plugin)]
+#![feature(rustc_private,plugin)]
+#![plugin(rustlex)]
 
-#[plugin] extern crate rustlex;
+#[allow(plugin_as_library)]
+extern crate rustlex;
+
 #[macro_use] extern crate log;
 
-use std::old_io::BufReader;
+use std::io::BufReader;
 
 use self::Token::{TokOuterStuff, TokInnerStuff};
 
 #[derive(PartialEq,Debug)]
-enum Token {
+pub enum Token {
     TokOuterStuff(String),
     TokInnerStuff(String)
 }
@@ -19,17 +21,17 @@ rustlex! ConditionLexer {
     let CLOSE = '}';
     let STUFF = [^'{''}']*;
     INITIAL {
-        STUFF => |&: lexer: &mut ConditionLexer<R>|
+        STUFF => |lexer: &mut ConditionLexer<R>|
             Some(TokOuterStuff(lexer.yystr().trim().to_string()))
-        OPEN => |&: lexer: &mut ConditionLexer<R>| {
+        OPEN => |lexer: &mut ConditionLexer<R>| -> Option<Token> {
             lexer.INNER();
             None
         }
     }
     INNER {
-        STUFF => |&: lexer: &mut ConditionLexer<R>|
+        STUFF => |lexer: &mut ConditionLexer<R>|
             Some(TokInnerStuff(lexer.yystr().trim().to_string()))
-        CLOSE => |&: lexer: &mut ConditionLexer<R>| {
+        CLOSE => |lexer: &mut ConditionLexer<R>| -> Option<Token> {
             lexer.INITIAL();
             None
         }
@@ -42,7 +44,7 @@ fn test_conditions() {
                         TokInnerStuff("inner".to_string()));
     let str = "outer { inner }";
     let inp = BufReader::new(str.as_bytes());
-    let mut lexer = ConditionLexer::new(inp);
+    let lexer = ConditionLexer::new(inp);
     let mut iter = expected.iter();
     for tok in lexer {
         assert_eq!(iter.next().unwrap(), &tok);

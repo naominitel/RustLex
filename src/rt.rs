@@ -1,6 +1,7 @@
+use std::io::Read;
 use std::ops::IndexMut;
 
-static RUSTLEX_BUFSIZE: usize = 4096;
+const RUSTLEX_BUFSIZE: usize = 4096;
 
 pub struct RustLexBuffer {
     d: Vec<u8>,
@@ -20,7 +21,7 @@ impl RustLexBuffer {
 
     #[inline(always)]
     pub fn as_slice(&self) -> &[u8] {
-        self.d.as_slice()
+        &self.d
     }
 
     #[inline(always)]
@@ -34,7 +35,7 @@ impl RustLexBuffer {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy,Clone)]
 pub struct RustLexPos {
     pub buf: usize,
     pub off: usize
@@ -47,7 +48,7 @@ impl PartialEq for RustLexPos {
     }
 }
 
-pub struct RustLexLexer<R : Reader> {
+pub struct RustLexLexer<R : Read> {
     pub stream: R,
     pub inp: Vec<RustLexBuffer>,
     pub advance: RustLexPos,
@@ -55,14 +56,22 @@ pub struct RustLexLexer<R : Reader> {
     pub tok: RustLexPos
 }
 
-impl<R: ::std::old_io::Reader> RustLexLexer<R> {
+impl<R: ::std::io::Read> RustLexLexer<R> {
     fn fill_buf(&mut self) {
         let &mut RustLexBuffer {
             ref mut d,
             ref mut valid
-        } = self.inp.index_mut(&self.pos.buf);
+        } = self.inp.index_mut(self.pos.buf);
         *valid = true;
-        let _ = self.stream.push(RUSTLEX_BUFSIZE, d);
+        // Grow to the correct bufsize
+        if d.len() < RUSTLEX_BUFSIZE {
+            d.resize(RUSTLEX_BUFSIZE, 0);
+        }
+        // Shrink back down to however much was used.
+        match self.stream.read(&mut ** d) {
+            Ok(l) => d.resize(l, 0),
+            Err(_) => d.clear()
+        };
         self.pos.off = 0;
     }
 
@@ -79,13 +88,14 @@ impl<R: ::std::old_io::Reader> RustLexLexer<R> {
                 // done cheaply because most analysers won't need more
                 // than a couple of buffers
                 let unused_buffers_count = self.tok.buf;
-                for i in range(0, unused_buffers_count) {
+                for i in (0 .. unused_buffers_count) {
                     self.inp[i].valid = false;
                     self.inp[i].d.truncate(0);
                     self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
-                self.pos.buf -= unused_buffers_count - 1;
+                self.pos.buf += 1;
+                self.pos.buf -= unused_buffers_count;
                 self.advance.buf -= unused_buffers_count;
 
                 while self.pos.buf >= self.inp.len() {
@@ -114,7 +124,7 @@ impl<R: ::std::old_io::Reader> RustLexLexer<R> {
         let mut lex = RustLexLexer {
             stream: stream,
             inp: vec!(RustLexBuffer{
-                d: Vec::new(),
+                d: Vec::with_capacity(RUSTLEX_BUFSIZE),
                 valid: false
             }),
             advance: RustLexPos {

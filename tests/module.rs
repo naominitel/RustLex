@@ -1,7 +1,9 @@
-#![feature(plugin,core,io,collections)]
-#![feature(plugin)]
+#![feature(rustc_private,plugin,collections)]
+#![plugin(rustlex)]
 
-#[plugin] extern crate rustlex;
+#[allow(plugin_as_library)]
+extern crate rustlex;
+
 #[macro_use] extern crate log;
 
 mod l {
@@ -14,21 +16,21 @@ mod l {
 
     rustlex! SimpleLexer {
         let A = 'a';
-        A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+        A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
     }
 }
 
 mod t {
 
     use ::l::Token::TokA;
-    use std::old_io::BufReader;
+    use std::io::BufReader;
 
     #[test]
     fn test_simple() {
         let expected = vec!(TokA(String::from_str("a")), TokA(String::from_str("a")));
         let str = "aa";
         let inp = BufReader::new(str.as_bytes());
-        let mut lexer = ::l::SimpleLexer::new(inp);
+        let lexer = ::l::SimpleLexer::new(inp);
         let mut iter = expected.iter();
         for tok in lexer {
             assert!(iter.next().unwrap() == &tok);
