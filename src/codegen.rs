@@ -138,8 +138,8 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     Box::new(CodeGenerator {
         span: sp,
         // FIXME:
-        handler: diagnostic::mk_span_handler(
-            diagnostic::default_handler(diagnostic::Auto, None, true),
+        handler: diagnostic::SpanHandler::new(
+            diagnostic::Handler::new(diagnostic::Auto, None, true),
             CodeMap::new()
         ),
         items: items
