@@ -1,6 +1,6 @@
 [package]
 name = "rustlex_codegen"
-version = "0.2.6"
+version = "0.3.0"
 authors = ["Naomi Nitel <naominitel@gmail.com>"]
 description = "Syntex extension for RustLex"
 homepage = "https://github.com/naominitel/rustlex"
