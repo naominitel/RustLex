@@ -195,6 +195,10 @@ impl Automaton {
                 self.states[init].trans = (svec::Any, f1nal);
                 (init, f1nal)
             }
+
+            &regex::Bind(_, ref expr) => {
+                self.init_from_regex(&**expr)
+            }
         }
     }
 

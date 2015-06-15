@@ -36,10 +36,19 @@ trait Tokenizer {
     // consumes the current token and return true if
     // it corresponds to tok, or false otherwise
     fn eat(&mut self, tok: &token::Token) -> Result<bool,FatalError>;
+    fn eat_keyword(&mut self, kwd: token::keywords::Keyword) -> Result<bool,FatalError>;
+
+    // returns true if the next token is the given
+    // token or keyword, without consuming it
+    fn check(&mut self, tok: &token::Token) -> bool;
+    fn check_keyword(&mut self, kwd: token::keywords::Keyword) -> bool;
 
     // expects the following token to be the
     // same as the given token, then consumes it
     fn expect(&mut self, tok: &token::Token) -> Result<(),FatalError>;
+
+    // expect the next token to be an ident and consumes it
+    fn parse_ident(&mut self) -> Result<Ident, FatalError>;
 
     // returns the span of the previous token
     fn last_span(&self) -> Span;
@@ -59,9 +68,19 @@ impl<'a> Tokenizer for Parser<'a> {
     fn eat(&mut self, tok: &token::Token) -> Result<bool,FatalError> {
         self.eat(tok)
     }
+    fn eat_keyword(&mut self, kwd: token::keywords::Keyword) -> Result<bool,FatalError> {
+        self.eat_keyword(kwd)
+    }
+    fn check(&mut self, tok: &token::Token) -> bool {
+        self.check(tok)
+    }
+    fn check_keyword(&mut self, kwd: token::keywords::Keyword) -> bool {
+        self.check_keyword(kwd)
+    }
     fn expect(&mut self, tok: &token::Token) -> Result<(),FatalError> {
         self.expect(tok)
     }
+    fn parse_ident(&mut self) -> Result<Ident, FatalError> { self.parse_ident() }
     fn last_span(&self) -> Span { self.last_span }
     fn span_fatal(&mut self, sp: Span, m: &str) -> FatalError {
         Parser::span_fatal(self, sp, m)
@@ -244,13 +263,24 @@ fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env)
 fn get_concat<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
     -> Result<Box<Regex>,FatalError> {
     let opl = try!(get_closure(parser, env));
-    if parser.token() == end ||
-        *parser.token() == token::BinOp(token::Or) {
+    if parser.check(end) ||
+        parser.check_keyword(token::keywords::As) ||
+        parser.check(&token::BinOp(token::Or)) {
         Ok(opl)
     } else {
         let opr = try!(get_concat(parser, end, env));
         Ok(Box::new(regex::Cat(opl, opr)))
     }
+}
+
+// parse a binding of a regexp to an identifier, i.e. expr as id
+fn get_binding<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
+        -> Result<Box<Regex>, FatalError> {
+    let expr = try!(get_concat(parser, end, env));
+    if try!(parser.eat_keyword(token::keywords::As)) {
+        let name = try!(parser.parse_ident());
+        Ok(Box::new(regex::Bind(name, expr)))
+    } else { Ok(expr) }
 }
 
 // entry point of the regex parser, parses an or-expression
@@ -263,7 +293,7 @@ fn get_regex<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
     if try!(parser.eat(end)) {
         return Err(parser.unexpected());
     }
-    let left = try!(get_concat(parser, end, env));
+    let left = try!(get_binding(parser, end, env));
     if try!(parser.eat(end)) {
         Ok(left)
     } else {

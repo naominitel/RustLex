@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use util::BinSetu8;
 
-pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any};
+pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any, Bind};
 
 #[derive(Clone)]
 pub enum Regex {
@@ -18,7 +18,10 @@ pub enum Regex {
     NotClass(Box<BinSetu8>),
     Var(Rc<Regex>),
     Char(u8),
-    Any
+    Any,
+
+    // bind
+    Bind(::syntax::ast::Ident, Box<Regex>)
 }
 
 pub fn string(string: &str) -> Option<Box<Regex>> {
