@@ -1,0 +1,26 @@
+[package]
+name = "rustlex_codegen"
+version = "0.2.6"
+authors = ["Naomi Nitel <naominitel@gmail.com>"]
+description = "Syntex extension for RustLex"
+homepage = "https://github.com/naominitel/rustlex"
+repository = "https://github.com/naominitel/rustlex"
+keywords = [ "lexer", "lexical", "analyser", "generator" ]
+license = "MIT"
+build = "build.rs"
+
+[lib]
+name = "rustlex_codegen"
+
+[features]
+with-syntex = ["quasi/with-syntex", "quasi_codegen/with-syntex", "syntex", "syntex_syntax"]
+
+[build-dependencies]
+quasi_codegen = { version = "*", optional = true }
+syntex        = { version = "*", optional = true }
+
+[dependencies]
+log = "*"
+quasi         = { version = "*", optional = true }
+syntex        = { version = "*", optional = true }
+syntex_syntax = { version = "*", optional = true }

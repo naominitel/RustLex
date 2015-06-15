@@ -59,8 +59,10 @@ pub struct Lexer {
     properties: Vec<Prop>
 }
 
-#[path = "codegen.rs"]
-mod codegen;
+mod codegen {
+#[cfg(feature = "with-syntex")] include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
+#[cfg(not(feature = "with-syntex"))] include!("codegen.in.rs");
+}
 
 impl Lexer {
     // Main function of RustLex, compiles a set of rules into a
@@ -100,7 +102,7 @@ impl Lexer {
         }
 
         info!("minimizing...");
-        match dfas.minimize(acts.len(), conds.as_mut_slice()) {
+        match dfas.minimize(acts.len(), &mut conds) {
             Ok(dfa) => Lexer {
                 tokens: def.tokens,
                 ident: def.ident,

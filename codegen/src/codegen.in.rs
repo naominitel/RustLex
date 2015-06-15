@@ -124,6 +124,13 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
     isp
 }
 
+fn mk_span_handler() -> diagnostic::SpanHandler {
+    diagnostic::SpanHandler::new(
+        diagnostic::Handler::new(diagnostic::Auto, None, true),
+        CodeMap::new()
+    )
+}
+
 pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     let mut items = Vec::new();
 
@@ -138,10 +145,7 @@ pub fn codegen(lex: &Lexer, cx: &mut ExtCtxt, sp: Span) -> Box<CodeGenerator> {
     Box::new(CodeGenerator {
         span: sp,
         // FIXME:
-        handler: diagnostic::SpanHandler::new(
-            diagnostic::Handler::new(diagnostic::Auto, None, true),
-            CodeMap::new()
-        ),
+        handler: mk_span_handler(),
         items: items
     })
 }

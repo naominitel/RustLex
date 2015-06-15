@@ -1,5 +1,4 @@
 [package]
-
 name = "rustlex"
 version = "0.2.6"
 authors = ["Naomi Nitel <naominitel@gmail.com>", "Mathieu Poumeyrol <kali@zoy.org>"]
@@ -13,3 +12,6 @@ license = "MIT"
 [lib]
 name = "rustlex"
 crate-type = ["dylib"]
+
+[dependencies]
+rustlex_codegen = { version = "*", path = "codegen" }

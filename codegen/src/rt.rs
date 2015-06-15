@@ -56,6 +56,15 @@ pub struct RustLexLexer<R : Read> {
     pub tok: RustLexPos
 }
 
+fn vec_resize<T: Clone>(vec: &mut Vec<T>, new_len: usize, value: T) {
+    let len = vec.len();
+    if new_len > len {
+        vec.extend(::std::iter::repeat(value).take(new_len - len));
+    } else {
+        vec.truncate(new_len);
+    }
+}
+
 impl<R: ::std::io::Read> RustLexLexer<R> {
     fn fill_buf(&mut self) {
         let &mut RustLexBuffer {
@@ -65,11 +74,11 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
         *valid = true;
         // Grow to the correct bufsize
         if d.len() < RUSTLEX_BUFSIZE {
-            d.resize(RUSTLEX_BUFSIZE, 0);
+            vec_resize(d, RUSTLEX_BUFSIZE, 0);
         }
         // Shrink back down to however much was used.
         match self.stream.read(&mut ** d) {
-            Ok(l) => d.resize(l, 0),
+            Ok(l) => vec_resize(d, l, 0),
             Err(_) => d.clear()
         };
         self.pos.off = 0;
@@ -91,7 +100,7 @@ impl<R: ::std::io::Read> RustLexLexer<R> {
                 for i in (0 .. unused_buffers_count) {
                     self.inp[i].valid = false;
                     self.inp[i].d.truncate(0);
-                    self.inp.as_mut_slice().swap(i + unused_buffers_count, i);
+                    self.inp.swap(i + unused_buffers_count, i);
                 }
                 self.tok.buf -= unused_buffers_count;
                 self.pos.buf += 1;

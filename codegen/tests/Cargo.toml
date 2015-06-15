@@ -1,0 +1,18 @@
+[package]
+name = "test"
+version = "0.0.0"
+build = "build.rs"
+
+[features]
+default     = ["nightly"]
+nightly     = ["rustlex"]
+with-syntex = ["rustlex_codegen/with-syntex", "syntex"]
+
+[build-dependencies]
+rustlex         = { version = "*", path = "../..", optional = true }
+rustlex_codegen = { version = "*", path = "..",    optional = true }
+syntex          = { version = "*", optional = true }
+
+[dependencies]
+rustlex         = { version = "*", path = "../..", optional = true }
+rustlex_codegen = { version = "*", path = "..",    optional = true }
