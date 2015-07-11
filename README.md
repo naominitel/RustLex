@@ -110,7 +110,7 @@ rustlex! SimpleLexer {
     let A = 'a';
 
     // then rules
-    A => |&: lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 ```
 
