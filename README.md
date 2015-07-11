@@ -28,7 +28,7 @@ and add the following lines at the top of your crate:
 ```rust
 #![feature(plugin)]
 #![plugin(rustlex)]
-#[allow(library_as_plugin)] extern crate rustlex;
+#[allow(plugin_as_library)] extern crate rustlex;
 #[macro_use] extern crate log;
 ```
 
