@@ -1,6 +1,7 @@
 use lexer::Lexer;
 use lexer::Prop;
 use regex;
+use syntax::attr;
 use syntax::ast;
 use syntax::ast::Ident;
 use syntax::codemap;
@@ -101,7 +102,14 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         }
     });
 
-    let isp = P(ast::Item { ident:ident, attrs:Vec::new(), id:ast::DUMMY_NODE_ID,
+    let docattr = attr::mk_attr_outer(attr::mk_attr_id(), attr::mk_list_item(
+        token::InternedString::new("allow"),
+        vec![
+            attr::mk_word_item(token::InternedString::new("missing_docs"))
+        ]
+    ));
+
+    let isp = P(ast::Item { ident:ident, attrs: vec![ docattr ], id:ast::DUMMY_NODE_ID,
         node: ast::ItemStruct(
         P(ast::StructDef { ctor_id: None, fields: fields }),
         ast::Generics {
