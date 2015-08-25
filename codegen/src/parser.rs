@@ -148,7 +148,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
             }
 
             token::Literal(token::Lit::Char(i), _) => {
-                let mut ch = parse::char_lit(i.as_str()).0 as u8;
+                let mut ch = parse::char_lit(&*i.as_str()).0 as u8;
 
                 match *parser.token() {
                     token::BinOp(token::Minus) => {
@@ -156,7 +156,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                         try!(parser.bump());
                         let ch2 = match try!(parser.bump_and_get()) {
                             token::Literal(token::Lit::Char(ch), _) =>
-                                parse::char_lit(ch.as_str()).0 as u8,
+                                parse::char_lit(&*ch.as_str()).0 as u8,
                             _ => return Err(parser.unexpected())
                         };
                         if ch >= ch2 {
@@ -175,13 +175,12 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
             }
 
             token::Literal(token::Lit::Str_(id),_) => {
-                let s = token::get_name(id);
-                if s.len() == 0 {
+                if id.as_str().len() == 0 {
                     let last_span = parser.last_span();
                     return Err(parser.span_fatal(last_span,
                         "bad string constant in character class"))
                 }
-                for b in s.bytes() {
+                for b in id.as_str().bytes() {
                     ret.insert(b);
                 }
             }
@@ -217,9 +216,9 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
             }
         }
         token::Literal(token::Lit::Char(ch), _) =>
-            Ok(Box::new(regex::Char(parse::char_lit(ch.as_str()).0 as u8))),
+            Ok(Box::new(regex::Char(parse::char_lit(&*ch.as_str()).0 as u8))),
         token::Literal(token::Lit::Str_(id), _) =>
-            match regex::string(&*token::get_name(id)) {
+            match regex::string(&*id.as_str()) {
                 Some(reg) => Ok(reg),
                 None => {
                     let last_span = parser.last_span();
@@ -232,8 +231,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
             None => {
                 let last_span = parser.last_span();
                 Err(parser.span_fatal(last_span,
-                &format!("unknown identifier: {}",
-                    token::get_name(id.name))))
+                &format!("unknown identifier: {}", id.name.as_str())))
             }
         },
         _ => Err(parser.unexpected_last(&tok))
