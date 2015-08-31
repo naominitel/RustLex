@@ -1,4 +1,4 @@
-#![feature(rustc_private,plugin,collections)]
+#![feature(rustc_private,plugin)]
 #![plugin(rustlex)]
 
 #[allow(plugin_as_library)]
@@ -27,7 +27,7 @@ mod t {
 
     #[test]
     fn test_simple() {
-        let expected = vec!(TokA(String::from_str("a")), TokA(String::from_str("a")));
+        let expected = vec!(TokA("a".to_string()), TokA("a".to_string()));
         let str = "aa";
         let inp = BufReader::new(str.as_bytes());
         let lexer = ::l::SimpleLexer::new(inp);

@@ -1,4 +1,4 @@
-#![feature(rustc_private,plugin,collections)]
+#![feature(rustc_private,plugin)]
 #![plugin(rustlex)]
 
 #[allow(plugin_as_library)]
@@ -57,16 +57,16 @@ rustlex! ComplexLexer {
 #[test]
 fn test_complex() {
     let expected = vec!(
-        TokId(String::from_str("foo")),
-        TokId(String::from_str("bar")),
-        TokId(String::from_str("baz")),
+        TokId("foo".to_string()),
+        TokId("bar".to_string()),
+        TokId("baz".to_string()),
         TokFloat(0.1),
         TokInt(212u32),
-        TokString(String::from_str("\"a\"")),
+        TokString("\"a\"".to_string()),
         TokInt(0x121u32),
-        TokId(String::from_str("baz")),
+        TokId("baz".to_string()),
         TokInt(123),
-        TokId(String::from_str("foo")));
+        TokId("foo".to_string()));
     let str = "foo bar baz 0.10 212 \"a\" 0x121u baz 123foo ";
     let inp = BufReader::new(str.as_bytes());
     let lexer = ComplexLexer::new(inp);
