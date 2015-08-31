@@ -1,4 +1,4 @@
-#![feature(plugin,collections,main)]
+#![feature(plugin,main)]
 #![plugin(rustlex)]
 
 #[allow(plugin_as_library)]
@@ -21,7 +21,7 @@ rustlex! SimpleLexer {
 
 #[test]
 fn test_simple() {
-    let expected = vec!(TokA(String::from_str("a")), TokA(String::from_str("a")));
+    let expected = vec!(TokA("a".to_string()), TokA("a".to_string()));
     let str = "aa";
     let inp = BufReader::new(str.as_bytes());
     let lexer = SimpleLexer::new(inp);
@@ -45,7 +45,7 @@ rustlex! OtherLexer {
 
 #[test]
 fn test_other() {
-    let expected = vec!(TokB(String::from_str("b")), TokB(String::from_str("b")));
+    let expected = vec!(TokB("b".to_string()), TokB("b".to_string()));
     let str = "bb";
     let inp = BufReader::new(str.as_bytes());
     let lexer = OtherLexer::new(inp);
