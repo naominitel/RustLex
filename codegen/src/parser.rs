@@ -20,7 +20,7 @@ use syntax::parse::token::keywords;
 use syntax::diagnostic::FatalError;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
-use util::BinSetu8;
+use bit_set::BitSet;
 
 trait Tokenizer {
     // returns the current token, without consuming it
@@ -138,8 +138,8 @@ fn get_properties<'a>(parser: &mut Parser)
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn get_char_class<T: Tokenizer>(parser: &mut T)
-        -> Result<Box<BinSetu8>,FatalError> {
-    let mut ret = Box::new(BinSetu8::new(256));
+        -> Result<Box<BitSet>,FatalError> {
+    let mut ret = Box::new(BitSet::with_capacity(256));
     loop {
         let tok = try!(parser.bump_and_get());
         match tok {
@@ -165,12 +165,12 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                                 "invalid character range"))
                         }
                         while ch <= ch2 {
-                            ret.insert(ch);
+                            ret.insert(ch as usize);
                             ch += 1;
                         }
                     }
 
-                    _ => ret.insert(ch)
+                    _ => { ret.insert(ch as usize); }
                 }
             }
 
@@ -181,7 +181,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                         "bad string constant in character class"))
                 }
                 for b in id.as_str().bytes() {
-                    ret.insert(b);
+                    ret.insert(b as usize);
                 }
             }
 

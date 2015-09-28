@@ -1,6 +1,6 @@
 use regex;
 use std::io::Write;
-use util::BinSet;
+use bit_set::BitSet;
 use util::svec;
 
 pub use self::Etrans::{No, One, Two, More};
@@ -202,34 +202,23 @@ impl Automaton {
         }
     }
 
-    pub fn moves(&self, st: &BinSet) -> Vec<Vec<usize>> {
+    pub fn moves(&self, st: &BitSet) -> Vec<Vec<usize>> {
         let mut ret = Vec::new();
         for _ in (0 .. 256usize) {
             ret.push(vec!());
         }
 
         for s in st.iter() {
-            match self.states[*s].trans {
-                (svec::Many(ref v), dst) =>
-                    for &ch in v.states.iter() {
-                        ret[ch as usize].push(dst)
+            match self.states[s].trans {
+                (svec::Many(ref set), dst) =>
+                    for ch in set.iter() {
+                        ret[ch as u8 as usize].push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
-                    let data = &set.data;
-                    let mut chk = data[0];
-                    let mut i = 0;
-
                     for ch in (0 .. 256usize) {
-                        if (ch & 0x3F) == 0 {
-                            chk = data[i];
-                            i += 1;
-                        }
-
-                        if (chk & 1) == 0 {
+                        if !set.contains(&ch) {
                             ret[ch].push(dst);
                         }
-
-                        chk = chk >> 1;
                     }
                 }
                 (svec::Any, dst) =>
@@ -245,22 +234,31 @@ impl Automaton {
     }
 
     #[inline(always)]
-    pub fn eclosure_(&self, st: usize) -> Box<BinSet> {
+    pub fn eclosure_(&self, st: usize) -> (BitSet, usize) {
         self.eclosure(&[st])
     }
 
-    pub fn eclosure(&self, st: &[usize]) -> Box<BinSet> {
-        let mut ret = Box::new(BinSet::new(self.states.len()));
+    pub fn eclosure(&self, st: &[usize]) -> (BitSet, usize) {
+        let mut ret = BitSet::with_capacity(self.states.len());
+        let mut ret_action = 0;
         let mut stack = Vec::with_capacity(st.len());
 
-        for s in st.iter() {
-            stack.push(*s);
-            ret.insert(*s);
+        macro_rules! add {
+            ($state: expr) => {
+                if !ret.contains(&$state) {
+                    ret.insert($state);
+                    stack.push($state);
 
-            let action = self.states[*s].action;
-            if action > ret.action {
-                ret.action = action;
+                    let action = self.states[$state].action;
+                    if action > ret_action {
+                        ret_action = action;
+                    }
+                }
             }
+        }
+
+        for &s in st.iter() {
+            add!(s);
         }
 
         while !stack.is_empty() {
@@ -268,57 +266,18 @@ impl Automaton {
             let st = &self.states[st];
 
             match st.etrans {
-                One(i) if !ret.contains(i) => {
-                    ret.insert(i);
-                    stack.push(i);
-
-                    let action = self.states[i].action;
-                    if action > ret.action {
-                        ret.action = action;
-                    }
-                }
-
-                Two(i, j) => {
-                    if !ret.contains(i) {
-                        ret.insert(i);
-                        stack.push(i);
-
-                        let action = self.states[i].action;
-                        if action > ret.action {
-                            ret.action = action;
-                        }
-                    }
-
-                    if !ret.contains(j) {
-                        ret.insert(j);
-                        stack.push(j);
-
-                        let action = self.states[j].action;
-                        if action > ret.action {
-                            ret.action = action;
-                        }
-                    }
-                }
-
+                No => (),
+                One(i) => add!(i),
+                Two(i, j) => { add!(i) ; add!(j) }
                 More(ref v) => {
-                    for i in v.iter() {
-                        if !ret.contains(*i) {
-                            ret.insert(*i);
-                            stack.push(*i);
-
-                            let action = self.states[*i].action;
-                            if action > ret.action {
-                                ret.action = action;
-                            }
-                        }
+                    for &i in v.iter() {
+                        add!(i);
                     }
                 }
-
-                _ => ()
             }
         }
 
-        ret
+        (ret, ret_action)
     }
 
     #[allow(dead_code)]
@@ -347,24 +306,24 @@ impl Automaton {
             match self.states[st].trans {
                 (svec::One(ch), dst) => {
                     let mut esc = String::new();
-                    esc.extend((ch as char).escape_default());
+                    esc.extend((ch as u8 as char).escape_default());
                     writeln!(out, "\t{} -> {} [label=\"{}\"];",
                         st, dst, esc);
                 }
 
-                (svec::Many(ref vec), dst) => {
-                    for &ch in vec.states.iter() {
+                (svec::Many(ref set), dst) => {
+                    for ch in set.iter() {
                         let mut esc = String::new();
-                        esc.extend((ch as char).escape_default());
+                        esc.extend((ch as u8 as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"{}\"];",
                             st, dst, esc);
                     }
                 }
 
-                (svec::ManyBut(ref vec), dst) => {
-                    for &ch in vec.states.iter() {
+                (svec::ManyBut(ref set), dst) => {
+                    for ch in set.iter() {
                         let mut esc = String::new();
-                        esc.extend((ch as char).escape_default());
+                        esc.extend((ch as u8 as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"!{}\"];",
                             st, dst, esc);
                     }

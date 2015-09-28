@@ -1,10 +1,10 @@
 use std::iter;
 use nfa;
 use std::result;
-use util;
 use syntax::ast;
 use std::iter::repeat;
 use std::io::Write;
+use bit_set::BitSet;
 
 pub use self::MinimizationError::UnreachablePattern;
 
@@ -19,7 +19,7 @@ pub struct State {
     // for DFA determinization
     // remember the set of NFA states
     // that this state corresponds to
-    states: Box<util::BinSet>,
+    states: BitSet,
     pub action: usize
 }
 
@@ -42,17 +42,19 @@ impl Automaton {
     // The resulting DFA is thus not strictly a DFA but this is needed to
     // implement "conditions" in the lexical analysers
     pub fn determinize(&mut self, nfa: &nfa::Automaton) {
-        let eclos = nfa.eclosure_(nfa.initial);
+        // TODO: should the action of this state always be 0? the only
+        // case in which we would want this is to recognize the empty word.
+        let (eclos, _) = nfa.eclosure_(nfa.initial);
         let ini = self.create_state(0, Some(eclos));
         let mut unmarked = vec!(ini);
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
-            let moves = nfa.moves(&*self.states[next].states);
+            let moves = nfa.moves(&self.states[next].states);
 
             let mut ch = 0usize;
             'g: for dst in moves.into_iter() {
-                let clos = nfa.eclosure(&dst);
+                let (clos, action) = nfa.eclosure(&dst);
                 if clos.is_empty() {
                     ch += 1;
                     continue;
@@ -74,7 +76,7 @@ impl Automaton {
                     Some(i) => self.states[next].trans[ch] = i,
                     None => {
                         // create a new DFA state for this set
-                        let st = self.create_state(clos.action(), Some(clos));
+                        let st = self.create_state(action, Some(clos));
                         self.states[next].trans[ch] = st;
                         unmarked.push(st);
                     }
@@ -99,12 +101,12 @@ impl Automaton {
     }
 
     #[inline(always)]
-    fn create_state(&mut self, act: usize, states: Option<Box<util::BinSet>>) -> usize {
+    fn create_state(&mut self, act: usize, states: Option<BitSet>) -> usize {
         self.states.push(State {
             trans: [0; 256],
             states: match states {
                 Some(s) => s,
-                None => Box::new(util::BinSet::new(0usize))
+                None => BitSet::new()
             },
             action: act
         });

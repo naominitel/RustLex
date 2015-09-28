@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use util::BinSetu8;
+use bit_set::BitSet;
 
 pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any, Bind};
 
@@ -14,8 +14,8 @@ pub enum Regex {
     Closure(Box<Regex>),
 
     // constants
-    Class(Box<BinSetu8>),
-    NotClass(Box<BinSetu8>),
+    Class(Box<BitSet>),
+    NotClass(Box<BitSet>),
     Var(Rc<Regex>),
     Char(u8),
     Any,

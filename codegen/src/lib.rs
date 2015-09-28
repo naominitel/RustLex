@@ -8,6 +8,7 @@
 #[cfg(not(feature = "with-syntex"))] extern crate rustc;
 
 #[macro_use] extern crate log;
+extern crate bit_set;
 
 use syntax::ast::{Ident, TokenTree};
 use syntax::codemap::Span;

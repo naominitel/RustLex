@@ -20,6 +20,7 @@ quasi_codegen = { version = "*", optional = true }
 syntex        = { version = "*", optional = true }
 
 [dependencies]
+bit-set = "*"
 log = "*"
 quasi         = { version = "*", optional = true }
 syntex        = { version = "*", optional = true }
