@@ -71,14 +71,14 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
     let mut fields = Vec::with_capacity(props.len() + 1);
 
     for &(name, ref ty, _) in props.iter() {
-        fields.push(lexer_field(sp, ast::Ident::new(name), ty.clone()));
+        fields.push(lexer_field(sp, ast::Ident::with_empty_ctxt(name), ty.clone()));
     }
 
     fields.push(codemap::Spanned {
         span: sp,
         node: ast::StructField_ {
             kind: ast::NamedField(
-                ast::Ident::new(token::intern("_input")),
+                ast::Ident::with_empty_ctxt(token::intern("_input")),
                 ast::Public
             ),
             id: ast::DUMMY_NODE_ID,
@@ -91,7 +91,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         span: sp,
         node: ast::StructField_ {
             kind: ast::NamedField(
-                ast::Ident::new(token::intern("_state")),
+                ast::Ident::with_empty_ctxt(token::intern("_state")),
                 ast::Public
             ),
             id: ast::DUMMY_NODE_ID,
@@ -106,12 +106,12 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         ast::Generics {
             lifetimes: Vec::new(),
             ty_params: ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
-                cx.typaram(sp, ast::Ident::new(token::intern("R")),
+                cx.typaram(sp, ast::Ident::with_empty_ctxt(token::intern("R")),
                 ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
                     cx.typarambound(cx.path_global(sp, vec!(
-                        ast::Ident::new(token::intern("std")),
-                        ast::Ident::new(token::intern("io")),
-                        ast::Ident::new(token::intern("Read"))
+                        ast::Ident::with_empty_ctxt(token::intern("std")),
+                        ast::Ident::with_empty_ctxt(token::intern("io")),
+                        ast::Ident::with_empty_ctxt(token::intern("Read"))
                 ))))),
                 None)
             )),
@@ -256,13 +256,13 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let mut fields = Vec::with_capacity(lex.properties.len() + 1);
 
     for &(name, _, ref expr) in lex.properties.iter() {
-        fields.push(cx.field_imm(sp, ast::Ident::new(name), expr.clone()));
+        fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(name), expr.clone()));
     }
 
     let initial = lex.conditions[0].1;
-    fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_input")),
+    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_input")),
         quote_expr!(&*cx, ::rustlex::rt::RustLexLexer::new(reader))));
-    fields.push(cx.field_imm(sp, ast::Ident::new(token::intern("_state")),
+    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_state")),
         quote_expr!(&*cx, $initial)));
 
     let init_expr = cx.expr_struct_ident(sp, lex.ident, fields);
@@ -270,7 +270,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let ident = lex.ident;
     // condition methods
     let mut items:Vec<P<ast::Item>> = lex.conditions.iter().map(|&(cond,st)| {
-        let cond = ast::Ident::new(cond);
+        let cond = ast::Ident::with_empty_ctxt(cond);
         quote_item!(cx,
             impl<R: ::std::io::Read> $ident<R> {
                 #[inline(always)]

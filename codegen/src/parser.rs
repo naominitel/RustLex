@@ -103,7 +103,7 @@ fn get_tokens(parser: &mut Parser) -> Result<Ident,FatalError> {
             try!(parser.expect(&token::Semi));
             Ok(token)
         }
-        _ => Ok(Ident::new(token::intern("Token")))
+        _ => Ok(Ident::with_empty_ctxt(token::intern("Token")))
     }
 }
 
