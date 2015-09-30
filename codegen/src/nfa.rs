@@ -202,31 +202,26 @@ impl Automaton {
         }
     }
 
-    pub fn moves(&self, st: &BitSet) -> Vec<Vec<usize>> {
-        let mut ret = Vec::new();
-        for _ in (0 .. 256usize) {
-            ret.push(vec!());
-        }
+    pub fn moves(&self, st: &BitSet, c: u8) -> Vec<usize> {
+        let mut ret = Vec::with_capacity(st.len());
 
         for s in st.iter() {
-            match self.states[s].trans {
-                (svec::Many(ref set), dst) =>
-                    for ch in set.iter().flat_map(|x| x.clone()) {
-                        ret[ch as u8 as usize].push(dst)
+            let (ref set, dst) = self.states[s].trans;
+            match *set {
+                svec::Many(ref set) =>
+                    if set.contains(c) {
+                        ret.push(dst);
                     },
-                (svec::ManyBut(ref set), dst) => {
-                    for ch in (0 .. 256usize) {
-                        if !set.contains(ch as u8) {
-                            ret[ch].push(dst);
-                        }
-                    }
-                }
-                (svec::Any, dst) =>
-                    for ch in (0 .. 256usize) {
-                        ret[ch].push(dst);
+                svec::ManyBut(ref set) =>
+                    if !set.contains(c) {
+                        ret.push(dst);
                     },
-                (svec::One(ch), dst) => ret[ch as usize].push(dst),
-                (svec::Zero, _) => ()
+                svec::Any => ret.push(dst),
+                svec::One(ch) =>
+                    if ch == c {
+                        ret.push(dst);
+                    },
+                svec::Zero => ()
             }
         }
 

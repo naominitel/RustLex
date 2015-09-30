@@ -50,13 +50,11 @@ impl Automaton {
 
         while !unmarked.is_empty() {
             let next = unmarked.pop().unwrap();
-            let moves = nfa.moves(&self.states[next].states);
 
-            let mut ch = 0usize;
-            'g: for dst in moves.into_iter() {
-                let (clos, action) = nfa.eclosure(&dst);
+            for ch in 0 .. 256 {
+                let moves = nfa.moves(&self.states[next].states, ch as u8);
+                let (clos, action) = nfa.eclosure(&moves);
                 if clos.is_empty() {
-                    ch += 1;
                     continue;
                 }
 
@@ -81,8 +79,6 @@ impl Automaton {
                         unmarked.push(st);
                     }
                 }
-
-                ch += 1;
             }
         }
 
