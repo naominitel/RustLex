@@ -20,7 +20,6 @@ use syntax::parse::token::keywords;
 use syntax::diagnostic::FatalError;
 use syntax::parse::parser::Parser;
 use syntax::ptr::P;
-use bit_set::BitSet;
 
 trait Tokenizer {
     // returns the current token, without consuming it
@@ -138,8 +137,8 @@ fn get_properties<'a>(parser: &mut Parser)
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn get_char_class<T: Tokenizer>(parser: &mut T)
-        -> Result<Box<BitSet>,FatalError> {
-    let mut ret = Box::new(BitSet::with_capacity(256));
+        -> Result<regex::CharSet, FatalError> {
+    let mut ret = regex::CharSet::new();
     loop {
         let tok = try!(parser.bump_and_get());
         match tok {
@@ -148,7 +147,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
             }
 
             token::Literal(token::Lit::Char(i), _) => {
-                let mut ch = parse::char_lit(&*i.as_str()).0 as u8;
+                let ch = parse::char_lit(&*i.as_str()).0 as u8;
 
                 match *parser.token() {
                     token::BinOp(token::Minus) => {
@@ -164,13 +163,10 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                             return Err(parser.span_fatal(last_span,
                                 "invalid character range"))
                         }
-                        while ch <= ch2 {
-                            ret.insert(ch as usize);
-                            ch += 1;
-                        }
+                        ret.push(ch .. ch2 + 1);
                     }
 
-                    _ => { ret.insert(ch as usize); }
+                    _ => { ret.push(ch .. ch + 1); }
                 }
             }
 
@@ -181,7 +177,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                         "bad string constant in character class"))
                 }
                 for b in id.as_str().bytes() {
-                    ret.insert(b as usize);
+                    ret.push(b .. b + 1);
                 }
             }
 

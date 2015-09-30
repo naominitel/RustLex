@@ -211,12 +211,12 @@ impl Automaton {
         for s in st.iter() {
             match self.states[s].trans {
                 (svec::Many(ref set), dst) =>
-                    for ch in set.iter() {
+                    for ch in set.iter().flat_map(|x| x.clone()) {
                         ret[ch as u8 as usize].push(dst)
                     },
                 (svec::ManyBut(ref set), dst) => {
                     for ch in (0 .. 256usize) {
-                        if !set.contains(&ch) {
+                        if !set.contains(ch as u8) {
                             ret[ch].push(dst);
                         }
                     }
@@ -312,7 +312,7 @@ impl Automaton {
                 }
 
                 (svec::Many(ref set), dst) => {
-                    for ch in set.iter() {
+                    for ch in set.iter().flat_map(|x| x.clone()) {
                         let mut esc = String::new();
                         esc.extend((ch as u8 as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"{}\"];",
@@ -321,7 +321,7 @@ impl Automaton {
                 }
 
                 (svec::ManyBut(ref set), dst) => {
-                    for ch in set.iter() {
+                    for ch in set.iter().flat_map(|x| x.clone()) {
                         let mut esc = String::new();
                         esc.extend((ch as u8 as char).escape_default());
                         writeln!(out, "\t{} -> {} [label=\"!{}\"];",

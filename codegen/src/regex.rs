@@ -1,7 +1,33 @@
 use std::rc::Rc;
-use bit_set::BitSet;
+use std::ops::Range;
+use std::slice;
 
 pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any, Bind};
+
+#[derive(Clone)]
+pub struct CharSet(Vec<Range<u8>>);
+
+impl CharSet {
+    pub fn new() -> CharSet {
+        CharSet(Vec::new())
+    }
+
+    pub fn push(&mut self, range: Range<u8>) {
+        let CharSet(ref mut vec) = *self;
+        vec.push(range);
+    }
+
+    pub fn contains(&self, item: u8) -> bool {
+        let CharSet(ref vec) = *self;
+        vec.iter().any(|x| x.start <= item && item < x.end)
+    }
+
+    // TODO: should FlatMap, when Rust is able to express it...
+    pub fn iter(&self) -> slice::Iter<Range<u8>> {
+        let CharSet(ref vec) = *self;
+        vec.iter()
+    }
+}
 
 #[derive(Clone)]
 pub enum Regex {
@@ -14,8 +40,8 @@ pub enum Regex {
     Closure(Box<Regex>),
 
     // constants
-    Class(Box<BitSet>),
-    NotClass(Box<BitSet>),
+    Class(CharSet),
+    NotClass(CharSet),
     Var(Rc<Regex>),
     Char(u8),
     Any,
