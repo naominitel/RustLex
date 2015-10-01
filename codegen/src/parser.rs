@@ -8,7 +8,6 @@ use lexer::LexerDef;
 use lexer::Rule;
 use regex;
 use regex::Regex;
-use std::rc::Rc;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
@@ -91,7 +90,7 @@ impl<'a> Tokenizer for Parser<'a> {
 }
 
 // the "lexical" environment of regular expression definitions
-type Env = HashMap<Name, Rc<Regex>>;
+type Env = HashMap<Name, usize>;
 
 fn get_tokens(parser: &mut Parser) -> Result<Ident,FatalError> {
     let token = token::intern("token");
@@ -315,13 +314,15 @@ fn get_pattern(parser: &mut Parser, env: &Env)
 // definition, otherwise return the "environment" containing named
 // regular expression definitions
 fn get_definitions(parser: &mut Parser)
-        -> Result<Box<Env>,FatalError> {
-    let mut ret = Box::new(HashMap::new());
+        -> Result<(Env, Vec<Box<Regex>>), FatalError> {
+    let mut env = HashMap::new();
+    let mut defs = Vec::new();
     while try!(parser.eat_keyword(keywords::Let)) {
-        let (id, pat) = try!(get_pattern(parser, &*ret));
-        ret.insert(id.name, Rc::new(*pat));
+        let (id, pat) = try!(get_pattern(parser, &env));
+        env.insert(id.name, defs.len());
+        defs.push(pat);
     }
-    Ok(ret)
+    Ok((env, defs))
 }
 
 // parses the contents of a "condition" body, i.e. simply a
@@ -423,8 +424,8 @@ pub fn parse(ident:Ident, parser: &mut Parser) ->
         Result<LexerDef,FatalError> {
     let tokens = try!(get_tokens(parser));
     let props = try!(get_properties(parser));
-    let defs = try!(get_definitions(parser));
-    let conditions = try!(get_conditions(parser, &*defs));
-    Ok(LexerDef { ident:ident, tokens:tokens, properties: props,
+    let (env, defs) = try!(get_definitions(parser));
+    let conditions = try!(get_conditions(parser, &env));
+    Ok(LexerDef { ident:ident, tokens:tokens, properties: props, defs: defs,
                   conditions: conditions })
 }

@@ -34,6 +34,7 @@ pub type Prop = (Name, P<Ty>, P<Expr>);
 pub struct LexerDef {
     pub tokens:     Ident,
     pub ident:      Ident,
+    pub defs:       Vec<Box<Regex>>,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
 }
@@ -92,7 +93,7 @@ impl Lexer {
             // build a NFA for this condition, determinize it
             // and add it to the built DFA
             info!("building...");
-            let nfa = Regex::build_nfa(asts);
+            let nfa = Regex::build_nfa(&asts[..], &def.defs[..]);
             info!("determinizing...");
             dfas.determinize(&nfa);
 

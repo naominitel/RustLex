@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::ops::Range;
 use std::option::IntoIter;
 use nfa;
@@ -39,7 +38,7 @@ pub enum Regex {
     // constants
     Class(CharSet),
     NotClass(CharSet),
-    Var(Rc<Regex>),
+    Var(usize),
     Char(u8),
     Any,
 
@@ -132,7 +131,7 @@ impl Regex {
     // creates a new Non-deterministic Finite Automaton using the
     // McNaughton-Yamada-Thompson construction
     // takes several regular expressions, each with an attached action
-    pub fn build_nfa(regexs: Vec<(Box<Regex>, usize)>) -> Automaton {
+    pub fn build_nfa(regexs: &[(Box<Regex>, usize)], defs: &[Box<Regex>]) -> Automaton {
         let mut ret = Automaton {
             states: Vec::new(),
             initial: 0usize
@@ -141,8 +140,8 @@ impl Regex {
         let ini = ret.create_state();
         let mut etrans = Vec::new();
 
-        for (reg, act) in regexs.into_iter() {
-            let (init, f1nal) = reg.to_automaton(&mut ret);
+        for &(ref reg, act) in regexs.iter() {
+            let (init, f1nal) = reg.to_automaton(&mut ret, defs);
             etrans.push(init);
             ret.states[f1nal].action = act;
         }
@@ -158,12 +157,12 @@ impl Regex {
     // won't have to be changed
     // the initial state is always the last state created, this way we can reuse
     // it in the concatenation case and avoid adding useless e-transitions
-    fn to_automaton(&self, auto: &mut Automaton) -> (usize, usize) {
+    fn to_automaton(&self, auto: &mut Automaton, defs: &[Box<Regex>]) -> (usize, usize) {
         match *self {
             Or(ref left, ref right) => {
                 // build sub-FSMs
-                let (linit, lf1nal) = left.to_automaton(auto);
-                let (rinit, rf1nal) = right.to_automaton(auto);
+                let (linit, lf1nal) = left.to_automaton(auto, defs);
+                let (rinit, rf1nal) = right.to_automaton(auto, defs);
 
                 // create new f1nal and initial states
                 let new_f1nal = auto.create_state();
@@ -180,7 +179,7 @@ impl Regex {
             }
 
             Cat(ref fst, ref snd) => {
-                let (  _  , sf1nal) = snd.to_automaton(auto);
+                let (  _  , sf1nal) = snd.to_automaton(auto, defs);
 
                 // remove the initial state of the right part
                 // this is possible at a cheap cost since the initial
@@ -189,7 +188,7 @@ impl Regex {
                     etrans, trans, ..
                 } = auto.states.pop().unwrap();
 
-                let (finit, ff1nal) = fst.to_automaton(auto);
+                let (finit, ff1nal) = fst.to_automaton(auto, defs);
                 auto.states[ff1nal].etrans = etrans;
                 auto.states[ff1nal].trans = trans;
 
@@ -197,7 +196,7 @@ impl Regex {
             }
 
             Maybe(ref reg) => {
-                let (init, f1nal) = reg.to_automaton(auto);
+                let (init, f1nal) = reg.to_automaton(auto, defs);
                 let new_f1nal = auto.create_state();
                 let new_init = auto.create_state();
 
@@ -208,7 +207,7 @@ impl Regex {
             }
 
             Closure(ref reg) => {
-                let (init, f1nal) = reg.to_automaton(auto);
+                let (init, f1nal) = reg.to_automaton(auto, defs);
                 let new_f1nal = auto.create_state();
                 let new_init = auto.create_state();
 
@@ -232,8 +231,8 @@ impl Regex {
                 (init, f1nal)
             }
 
-            Var(ref reg) => {
-                reg.to_automaton(auto)
+            Var(idx) => {
+                defs[idx].to_automaton(auto, defs)
             }
 
             Char(ch) => {
@@ -251,39 +250,39 @@ impl Regex {
             }
 
             Bind(_, ref expr) => {
-                expr.to_automaton(auto)
+                expr.to_automaton(auto, defs)
             }
         }
     }
 
     #[allow(dead_code)]
     // prints the AST for debugging purposes
-    pub fn show(&self, span: &str) {
+    pub fn show(&self, span: &str, defs: &[Box<Regex>]) {
         match self {
             &Or(ref l, ref r) => {
                 println!("{} Or of: ", span);
-                l.show(&format!("  {}", span));
-                r.show(&format!("  {}", span));
+                l.show(&format!("  {}", span), defs);
+                r.show(&format!("  {}", span), defs);
             }
 
             &Cat(ref l, ref r) => {
                 println!("{} Cat of: ", span);
-                l.show(&format!("  {}", span));
-                r.show(&format!("  {}", span));
+                l.show(&format!("  {}", span), defs);
+                r.show(&format!("  {}", span), defs);
             }
 
             &Maybe(ref reg) => {
                 println!("{} Optionnally the regex:", span);
-                reg.show(span);
+                reg.show(span, defs);
             }
 
             &Closure(ref reg) => {
                 println!("{} The eclosure of", span);
-                reg.show(&format!("  {}", span))
+                reg.show(&format!("  {}", span), defs)
             }
 
-            &Var(ref reg) => {
-                (**reg).show(span);
+            &Var(idx) => {
+                defs[idx].show(span, defs);
             }
 
             &Char(ref c) => println!("{} The char {}", span, *c as char),
