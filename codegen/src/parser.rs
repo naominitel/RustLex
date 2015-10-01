@@ -193,7 +193,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
 // parenthesized subexpressions are also parsed here since the have
 // the same operator precedence as the constants
 fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
-        -> Result<Box<Regex>,FatalError> {
+        -> Result<Regex,FatalError> {
     let tok = try!(parser.bump_and_get());
     // here we expect either
     // the start of a character-class, '['
@@ -236,7 +236,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
 // a "closure" in a regular expression, i.e. expr*
 // the * operator has lower precedence that concatenation
 fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env)
-        -> Result<Box<Regex>,FatalError> {
+        -> Result<Regex,FatalError> {
     let reg = try!(get_const(parser, env));
     if try!(parser.eat(&token::BinOp(token::Star))) {
         Ok(Box::new(regex::Closure(reg)))
@@ -254,7 +254,7 @@ fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env)
 // indicated by the end parameter or an or operator, which has
 // higher precedence. Concatenation is left-assoc
 fn get_concat<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
-    -> Result<Box<Regex>,FatalError> {
+    -> Result<Regex,FatalError> {
     let opl = try!(get_closure(parser, env));
     if parser.check(end) ||
         parser.check_keyword(token::keywords::As) ||
@@ -268,7 +268,7 @@ fn get_concat<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
 
 // parse a binding of a regexp to an identifier, i.e. expr as id
 fn get_binding<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
-        -> Result<Box<Regex>, FatalError> {
+        -> Result<Regex, FatalError> {
     let expr = try!(get_concat(parser, end, env));
     if try!(parser.eat_keyword(token::keywords::As)) {
         let name = try!(parser.parse_ident());
@@ -282,7 +282,7 @@ fn get_binding<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
 // the end parameter, we try to read a | operator followed by another
 // expression which is parsed recursively (or is left-assoc)
 fn get_regex<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
-    -> Result<Box<Regex>,FatalError> {
+    -> Result<Regex,FatalError> {
     if try!(parser.eat(end)) {
         return Err(parser.unexpected());
     }
@@ -300,7 +300,7 @@ fn get_regex<T: Tokenizer>(parser: &mut T, end: &token::Token, env: &Env)
 // this function expects the next tokens to be id = reg, with id
 // being a non-keyword identifier and reg a literal constant
 fn get_pattern(parser: &mut Parser, env: &Env)
-        -> Result<(Ident, Box<Regex>),FatalError> {
+        -> Result<(Ident, Regex),FatalError> {
     let name = try!(parser.parse_ident());
     try!(parser.expect(&token::Eq));
     let reg = try!(get_regex(parser, &token::Semi, env));
@@ -314,7 +314,7 @@ fn get_pattern(parser: &mut Parser, env: &Env)
 // definition, otherwise return the "environment" containing named
 // regular expression definitions
 fn get_definitions(parser: &mut Parser)
-        -> Result<(Env, Vec<Box<Regex>>), FatalError> {
+        -> Result<(Env, Vec<Regex>), FatalError> {
     let mut env = HashMap::new();
     let mut defs = Vec::new();
     while try!(parser.eat_keyword(keywords::Let)) {

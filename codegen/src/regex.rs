@@ -4,7 +4,7 @@ use nfa;
 use nfa::{No, One, Two, More};
 use util::svec;
 
-pub use self::Regex::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any, Bind};
+pub use self::RegexNode::{Or, Cat, Maybe, Closure, Class, NotClass, Var, Char, Any, Bind};
 
 #[derive(Clone)]
 pub struct CharSet(Vec<Range<u8>>);
@@ -25,15 +25,17 @@ impl CharSet {
     }
 }
 
+pub type Regex = Box<RegexNode>;
+
 #[derive(Clone)]
-pub enum Regex {
+enum RegexNode {
     // binary operators
-    Or(Box<Regex>, Box<Regex>),
-    Cat(Box<Regex>, Box<Regex>),
+    Or(Regex, Regex),
+    Cat(Regex, Regex),
 
     // unary operators
-    Maybe(Box<Regex>),
-    Closure(Box<Regex>),
+    Maybe(Regex),
+    Closure(Regex),
 
     // constants
     Class(CharSet),
@@ -43,10 +45,10 @@ pub enum Regex {
     Any,
 
     // bind
-    Bind(::syntax::ast::Ident, Box<Regex>)
+    Bind(::syntax::ast::Ident, Regex)
 }
 
-pub fn string(string: &str) -> Option<Box<Regex>> {
+pub fn string(string: &str) -> Option<Regex> {
     let mut it = string.bytes();
     let mut reg = Box::new(Char(match it.next() {
         Some(ch) => ch,
@@ -127,37 +129,37 @@ impl nfa::State for State {
 
 pub type Automaton = nfa::Automaton<State>;
 
-impl Regex {
-    // creates a new Non-deterministic Finite Automaton using the
-    // McNaughton-Yamada-Thompson construction
-    // takes several regular expressions, each with an attached action
-    pub fn build_nfa(regexs: &[(Box<Regex>, usize)], defs: &[Box<Regex>]) -> Automaton {
-        let mut ret = Automaton {
-            states: Vec::new(),
-            initial: 0usize
-        };
+// creates a new Non-deterministic Finite Automaton using the
+// McNaughton-Yamada-Thompson construction
+// takes several regular expressions, each with an attached action
+pub fn build_nfa(regexs: &[(Regex, usize)], defs: &[Regex]) -> Automaton {
+    let mut ret = Automaton {
+        states: Vec::new(),
+        initial: 0usize
+    };
 
-        let ini = ret.create_state();
-        let mut etrans = Vec::new();
+    let ini = ret.create_state();
+    let mut etrans = Vec::new();
 
-        for &(ref reg, act) in regexs.iter() {
-            let (init, f1nal) = reg.to_automaton(&mut ret, defs);
-            etrans.push(init);
-            ret.states[f1nal].action = act;
-        }
-
-        ret.states[ini].etrans = More(etrans);
-        ret.initial = ini;
-        ret
+    for &(ref reg, act) in regexs.iter() {
+        let (init, f1nal) = reg.to_automaton(&mut ret, defs);
+        etrans.push(init);
+        ret.states[f1nal].action = act;
     }
 
+    ret.states[ini].etrans = More(etrans);
+    ret.initial = ini;
+    ret
+}
+
+impl RegexNode {
     // the construction is implemented recursively. Each call builds a
     // sub-expression of the regex, and returns the f1nals and initial states
     // only thos states will have to be modified so transitions numbers
     // won't have to be changed
     // the initial state is always the last state created, this way we can reuse
     // it in the concatenation case and avoid adding useless e-transitions
-    fn to_automaton(&self, auto: &mut Automaton, defs: &[Box<Regex>]) -> (usize, usize) {
+    fn to_automaton(&self, auto: &mut Automaton, defs: &[Regex]) -> (usize, usize) {
         match *self {
             Or(ref left, ref right) => {
                 // build sub-FSMs
@@ -257,7 +259,7 @@ impl Regex {
 
     #[allow(dead_code)]
     // prints the AST for debugging purposes
-    pub fn show(&self, span: &str, defs: &[Box<Regex>]) {
+    pub fn show(&self, span: &str, defs: &[Regex]) {
         match self {
             &Or(ref l, ref r) => {
                 println!("{} Or of: ", span);

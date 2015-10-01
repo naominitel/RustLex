@@ -1,5 +1,5 @@
 use dfa;
-use regex::Regex;
+use regex;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
@@ -15,7 +15,7 @@ use syntax::ptr::P;
 // unfortunately we have to use borrowed pointers since
 // this is what libsyntax gives usn
 pub struct Rule {
-    pub pattern: Box<Regex>,
+    pub pattern: regex::Regex,
     pub action: P<Expr>
 }
 
@@ -34,7 +34,7 @@ pub type Prop = (Name, P<Ty>, P<Expr>);
 pub struct LexerDef {
     pub tokens:     Ident,
     pub ident:      Ident,
-    pub defs:       Vec<Box<Regex>>,
+    pub defs:       Vec<regex::Regex>,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
 }
@@ -93,7 +93,7 @@ impl Lexer {
             // build a NFA for this condition, determinize it
             // and add it to the built DFA
             info!("building...");
-            let nfa = Regex::build_nfa(&asts[..], &def.defs[..]);
+            let nfa = regex::build_nfa(&asts[..], &def.defs[..]);
             info!("determinizing...");
             dfas.determinize(&nfa);
 
