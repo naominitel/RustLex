@@ -85,11 +85,11 @@ impl Automaton {
         self.initial = ini;
     }
 
-    pub fn new() -> Box<Automaton> {
-        let mut ret = Box::new(Automaton {
+    pub fn new() -> Automaton {
+        let mut ret = Automaton {
             states: vec!(),
             initial: 0
-        });
+        };
 
         // create a dead state
         ret.create_state(0, None);
@@ -113,7 +113,7 @@ impl Automaton {
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
     pub fn minimize(&self, acts_count: usize, conditions: &mut [(ast::Name, usize)])
-        -> result::Result<Box<Automaton>, MinimizationError> {
+        -> result::Result<Automaton, MinimizationError> {
         // groups are stored as an array indexed by a state number
         // giving a group number.
         let mut groups = Vec::with_capacity(self.states.len());
@@ -195,10 +195,10 @@ impl Automaton {
         }
 
         // construct the minimal DFA
-        let mut ret = Box::new(Automaton {
+        let mut ret = Automaton {
             states: Vec::with_capacity(subgroups.len()),
             initial: groups[self.initial] + 1
-        });
+        };
 
         // create the dead state
         // FIXME: is this really necessary ? it works

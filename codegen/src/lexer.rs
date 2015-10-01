@@ -53,7 +53,7 @@ pub struct LexerDef {
 pub struct Lexer {
     tokens:Ident,
     ident:Ident,
-    auto: Box<dfa::Automaton>,
+    auto: dfa::Automaton,
     actions: Vec<P<Expr>>,
     conditions: Vec<(Name, usize)>,
     properties: Vec<Prop>
@@ -67,7 +67,7 @@ mod codegen {
 impl Lexer {
     // Main function of RustLex, compiles a set of rules into a
     // lexical analyser
-    pub fn new(def: Box<LexerDef>, cx: &ExtCtxt) -> Lexer {
+    pub fn new(def: LexerDef, cx: &ExtCtxt) -> Lexer {
         // all the actions in the lexical analyser
         // 0 is a dummy action that represent no action
         let dummy_expr = cx.expr_unreachable(cx.call_site());
