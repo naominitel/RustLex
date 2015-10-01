@@ -62,6 +62,23 @@ pub fn string(string: &str) -> Option<Regex> {
     Some(reg)
 }
 
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
+pub struct Action(pub usize);
+
+impl nfa::StateData for Action {
+    fn no_data() -> Action {
+        Action(0)
+    }
+
+    fn combine(a: Action, b: Action) -> Action {
+        if a >= b { a } else { b }
+    }
+
+    fn is_final(&self) -> bool {
+        *self != Action(0)
+    }
+}
+
 pub struct State {
     // the McNaughton-Yamada-Thompson
     // construction algorithm will build
@@ -80,18 +97,18 @@ pub struct State {
 
     // 0: no action. otherwise, it's
     // a f1nal state with an action
-    action: usize
+    action: Action
 }
 
 impl nfa::State for State {
-    type Data = usize;
+    type Data = Action;
     type Iter = IntoIter<usize>;
 
     fn new() -> State {
         State {
             trans: (svec::Zero, 0),
             etrans: No,
-            action: 0
+            action: Action(0)
         }
     }
 
@@ -110,20 +127,8 @@ impl nfa::State for State {
         }.into_iter()
     }
 
-    fn new_data() -> usize {
-        0
-    }
-
-    fn data(&self) -> usize {
+    fn data(&self) -> Action {
         self.action
-    }
-
-    fn combine_data(a: usize, b: usize) -> usize {
-        if a >= b { a } else { b }
-    }
-
-    fn is_final(data: Self::Data) -> bool {
-        data != 0
     }
 }
 
@@ -132,7 +137,7 @@ pub type Automaton = nfa::Automaton<State>;
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: &[(Regex, usize)], defs: &[Regex]) -> Automaton {
+pub fn build_nfa(regexs: &[(Regex, Action)], defs: &[Regex]) -> Automaton {
     let mut ret = Automaton {
         states: Vec::new(),
         initial: 0usize

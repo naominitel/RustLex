@@ -85,7 +85,7 @@ impl Lexer {
             let name = cond.name;
 
             for &Rule { ref pattern, ref action } in cond.rules.iter() {
-                asts.push((pattern.clone(), id));
+                asts.push((pattern.clone(), regex::Action(id)));
                 acts.push(action.clone());
                 id += 1;
             }

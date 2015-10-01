@@ -1,5 +1,6 @@
 use std::iter;
 use nfa;
+use regex::Action;
 use std::result;
 use syntax::ast;
 use std::iter::repeat;
@@ -41,7 +42,7 @@ impl Automaton {
     // transition between the differents DFA.
     // The resulting DFA is thus not strictly a DFA but this is needed to
     // implement "conditions" in the lexical analysers
-    pub fn determinize<T: nfa::State<Data = usize>>(&mut self, nfa: &nfa::Automaton<T>) {
+    pub fn determinize<T: nfa::State<Data = Action>>(&mut self, nfa: &nfa::Automaton<T>) {
         // TODO: should the action of this state always be 0? the only
         // case in which we would want this is to recognize the empty word.
         let (eclos, _) = nfa.eclosure_(nfa.initial);
@@ -74,6 +75,7 @@ impl Automaton {
                     Some(i) => self.states[next].trans[ch] = i,
                     None => {
                         // create a new DFA state for this set
+                        let Action(action) = action;
                         let st = self.create_state(action, Some(clos));
                         self.states[next].trans[ch] = st;
                         unmarked.push(st);
