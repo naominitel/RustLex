@@ -41,7 +41,7 @@ impl Automaton {
     // transition between the differents DFA.
     // The resulting DFA is thus not strictly a DFA but this is needed to
     // implement "conditions" in the lexical analysers
-    pub fn determinize(&mut self, nfa: &nfa::Automaton) {
+    pub fn determinize<T: nfa::State<Data = usize>>(&mut self, nfa: &nfa::Automaton<T>) {
         // TODO: should the action of this state always be 0? the only
         // case in which we would want this is to recognize the empty word.
         let (eclos, _) = nfa.eclosure_(nfa.initial);

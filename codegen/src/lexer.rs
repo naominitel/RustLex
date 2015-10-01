@@ -1,5 +1,4 @@
 use dfa;
-use nfa;
 use regex::Regex;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
@@ -93,9 +92,9 @@ impl Lexer {
             // build a NFA for this condition, determinize it
             // and add it to the built DFA
             info!("building...");
-            let nfa = nfa::build_nfa(asts);
+            let nfa = Regex::build_nfa(asts);
             info!("determinizing...");
-            dfas.determinize(&*nfa);
+            dfas.determinize(&nfa);
 
             // store the initial ID of auto for this condition
             conds.push((name, dfas.initial));
