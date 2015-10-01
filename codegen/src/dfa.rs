@@ -1,8 +1,11 @@
 use std::iter;
 use nfa;
-use regex::Action;
+use nfa::StateData;
 use std::result;
 use syntax::ast;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::Hash;
 use std::iter::repeat;
 use std::io::Write;
 use bit_set::BitSet;
@@ -11,7 +14,7 @@ pub use self::MinimizationError::UnreachablePattern;
 
 /* deterministic finite automaton */
 
-pub struct State {
+pub struct State<T> {
     // this is not strictly speaking
     // a DFA since there may be no
     // transitions for a given input
@@ -21,11 +24,11 @@ pub struct State {
     // remember the set of NFA states
     // that this state corresponds to
     states: BitSet,
-    pub action: usize
+    pub data: T
 }
 
-pub struct Automaton {
-    pub states: Vec<State>,
+pub struct Automaton<T> {
+    pub states: Vec<State<T>>,
     pub initial: usize
 }
 
@@ -35,18 +38,18 @@ pub enum MinimizationError {
     UnreachablePattern(usize)
 }
 
-impl Automaton {
+impl<T> Automaton<T> where T: nfa::StateData {
     // determinize a nondeterministic finite automaton and "adds" it to this
     // deterministic automaton. adding it means that the newly built DFA will
     // use the next state number available in this DFA but there will be no
     // transition between the differents DFA.
     // The resulting DFA is thus not strictly a DFA but this is needed to
     // implement "conditions" in the lexical analysers
-    pub fn determinize<T: nfa::State<Data = Action>>(&mut self, nfa: &nfa::Automaton<T>) {
+    pub fn determinize<S: nfa::State<Data = T>>(&mut self, nfa: &nfa::Automaton<S>) {
         // TODO: should the action of this state always be 0? the only
         // case in which we would want this is to recognize the empty word.
         let (eclos, _) = nfa.eclosure_(nfa.initial);
-        let ini = self.create_state(0, Some(eclos));
+        let ini = self.create_state(S::Data::no_data(), Some(eclos));
         let mut unmarked = vec!(ini);
 
         while !unmarked.is_empty() {
@@ -75,7 +78,6 @@ impl Automaton {
                     Some(i) => self.states[next].trans[ch] = i,
                     None => {
                         // create a new DFA state for this set
-                        let Action(action) = action;
                         let st = self.create_state(action, Some(clos));
                         self.states[next].trans[ch] = st;
                         unmarked.push(st);
@@ -87,26 +89,26 @@ impl Automaton {
         self.initial = ini;
     }
 
-    pub fn new() -> Automaton {
+    pub fn new() -> Automaton<T> {
         let mut ret = Automaton {
             states: vec!(),
             initial: 0
         };
 
         // create a dead state
-        ret.create_state(0, None);
+        ret.create_state(T::no_data(), None);
         ret
     }
 
     #[inline(always)]
-    fn create_state(&mut self, act: usize, states: Option<BitSet>) -> usize {
+    fn create_state(&mut self, act: T, states: Option<BitSet>) -> usize {
         self.states.push(State {
             trans: [0; 256],
             states: match states {
                 Some(s) => s,
                 None => BitSet::new()
             },
-            action: act
+            data: act
         });
 
         self.states.len() - 1
@@ -114,15 +116,23 @@ impl Automaton {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: usize, conditions: &mut [(ast::Name, usize)])
-        -> result::Result<Automaton, MinimizationError> {
+    pub fn minimize(&self, acts_count: usize, initials: &mut [(ast::Name, usize)])
+        -> result::Result<Automaton<T>, MinimizationError>
+        where T: Clone + Eq + Hash {
         // groups are stored as an array indexed by a state number
         // giving a group number.
         let mut groups = Vec::with_capacity(self.states.len());
 
+        let mut group_of_action = HashMap::new();
+        let mut next_group = 0;
+
         // create one subgroup per action
         for st in self.states.iter() {
-            groups.push(st.action);
+            groups.push(*group_of_action.entry(&st.data).or_insert_with(|| {
+                let ret = next_group;
+                next_group += 1;
+                ret
+            }));
         }
 
         // now iterate over the states and split the groups into
@@ -208,7 +218,7 @@ impl Automaton {
         // dead states. one should check if the dead state
         // of the initial automata is always preserved and
         // keep it instead of creating a new one
-        ret.create_state(0, None);
+        ret.create_state(T::no_data(), None);
 
         // build representing states
         // now that we are here
@@ -228,7 +238,7 @@ impl Automaton {
             let (_, st) = gr[0];
 
             let st = &self.states[st];
-            let state = ret.create_state(st.action, None);
+            let state = ret.create_state(st.data.clone(), None);
             let state = &mut ret.states[state];
 
             // adjust transitions
@@ -247,7 +257,7 @@ impl Automaton {
         }
 
         // update the initial state numbers of each condition
-        for c in conditions.iter_mut() {
+        for c in initials.iter_mut() {
             let (n, st) = *c;
             *c = (n, groups[st] + 1);
         }
@@ -259,7 +269,7 @@ impl Automaton {
     #[allow(unused_must_use)]
     // outs the automaton as a dot file for graphviz
     // for debugging purposes
-    pub fn todot(&self, out: &mut Write) {
+    pub fn todot(&self, out: &mut Write) where T: Display + Eq {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
@@ -269,9 +279,9 @@ impl Automaton {
 
         // outputs final states as doublecircle-shaped nodes
         for st in self.states.iter() {
-            if st.action != 0 {
+            if st.data != T::no_data() {
                 writeln!(out, "\tnode [shape=doublecircle, label=\"{} ({})\"] {};",
-                    i, st.action, i);
+                    i, st.data, i);
             }
 
             i += 1;

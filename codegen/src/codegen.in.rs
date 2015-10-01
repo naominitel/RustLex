@@ -1,5 +1,6 @@
 use lexer::Lexer;
 use lexer::Prop;
+use regex;
 use syntax::ast;
 use syntax::ast::Ident;
 use syntax::codemap;
@@ -231,7 +232,8 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item>
 
     let mut acctable = Vec::new();
     for st in lex.auto.states.iter() {
-        let acc_expr = cx.expr_usize(sp, st.action);
+        let regex::Action(act) = st.data;
+        let acc_expr = cx.expr_usize(sp, act);
         acctable.push(acc_expr);
     }
     let acctable = cx.expr_vec(sp, acctable);

@@ -1,4 +1,5 @@
 use dfa;
+use nfa::State;
 use regex;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
@@ -53,7 +54,7 @@ pub struct LexerDef {
 pub struct Lexer {
     tokens:Ident,
     ident:Ident,
-    auto: dfa::Automaton,
+    auto: dfa::Automaton<regex::Action>,
     actions: Vec<P<Expr>>,
     conditions: Vec<(Name, usize)>,
     properties: Vec<Prop>

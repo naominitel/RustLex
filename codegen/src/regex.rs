@@ -62,7 +62,7 @@ pub fn string(string: &str) -> Option<Regex> {
     Some(reg)
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq, PartialOrd)]
 pub struct Action(pub usize);
 
 impl nfa::StateData for Action {
