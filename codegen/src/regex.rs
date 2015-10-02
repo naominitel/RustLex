@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::option::IntoIter;
-use nfa;
-use nfa::{No, One, Two, More};
+use fsa::nfa;
+use fsa::nfa::{No, One, Two, More};
 
 pub use self::RegexNode::{Or, Cat, Maybe, Closure, Var, Literal, Bind};
 pub use self::Const::{Class, NotClass, Char, Any};

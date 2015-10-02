@@ -1,24 +1,16 @@
-#![feature(phase)]
+#![feature(plugin)]
+#![plugin(rustlex)]
 
-#[phase(plugin)]
-extern crate rustlex;
-
-#[path="../common/strreader.rs"]
-mod strreader;
+#[allow(plugin_as_library)] extern crate rustlex;
 
 type Token = ();
 
-rustlex!(
-    "sizeof" => println!("Saw token sizeof") //~ ERROR unreachable pattern
+rustlex! lexer(
+    let ID = ['a'-'z']+;
     //~^ NOTE included in another pattern
-    ['a'-'z']+ => println!("Saw an identifier")
-)
+    ID => println!("Saw an identifier")
+    "sizeof" => println!("Saw token sizeof") //~ ERROR unreachable pattern
+);
 
 fn main() {
-    let str = "foo ";
-    let inp = strreader::reader(str) as Box<::std::old_io::Reader>;
-    let mut lexer = Lexer::new(inp);
-
-    for tok in lexer {
-    }
 }

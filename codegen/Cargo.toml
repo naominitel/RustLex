@@ -22,6 +22,7 @@ syntex        = { version = "*", optional = true }
 [dependencies]
 bit-set = "*"
 log = "*"
+fsa = { path = "../fsa" }
 quasi         = { version = "*", optional = true }
 syntex        = { version = "*", optional = true }
 syntex_syntax = { version = "*", optional = true }

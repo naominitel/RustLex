@@ -1,6 +1,5 @@
 use analysis;
-use dfa;
-use nfa::State;
+use fsa::dfa;
 use regex;
 use syntax::ast::Expr;
 use syntax::ast::Ident;

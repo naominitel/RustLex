@@ -1,6 +1,6 @@
+use fsa::dfa::Automaton;
 use std::collections::HashSet;
 use std::iter;
-use dfa::Automaton;
 use regex::Action;
 
 pub fn find_unreachable_patterns(auto: &Automaton<Action>, acts: usize) -> Vec<Action> {

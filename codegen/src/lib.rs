@@ -9,15 +9,14 @@
 
 #[macro_use] extern crate log;
 extern crate bit_set;
+extern crate fsa;
 
 use syntax::ast::{Ident, TokenTree};
 use syntax::codemap::Span;
 use syntax::ext::base::{ExtCtxt, MacResult};
 
 mod analysis;
-mod dfa;
 mod lexer;
-mod nfa;
 mod parser;
 mod regex;
 pub mod rt;

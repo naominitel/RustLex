@@ -1,0 +1,15 @@
+[package]
+name = "fsa"
+version = "0.3.1"
+authors = ["Naomi Nitel <naominitel@gmail.com>"]
+description = "Library for manipulating (deterministic) finite automata"
+homepage = "https://github.com/naominitel/rustlex"
+repository = "https://github.com/naominitel/rustlex"
+keywords = [ "finite", "state", "machine", "automata", "automaton" ]
+license = "MIT"
+
+[lib]
+name = "fsa"
+
+[dependencies]
+bit-set = "*"
