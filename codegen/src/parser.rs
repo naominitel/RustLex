@@ -200,18 +200,24 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
-        token::Dot => Ok(Box::new(regex::Any)),
+        token::Dot => Ok(Box::new(regex::Literal(regex::Any))),
         token::OpenDelim(token::Paren) => get_regex(parser,
             &token::CloseDelim(token::Paren), env),
         token::OpenDelim(token::Bracket) => {
             if try!(parser.eat(&token::BinOp(token::Caret))) {
-                Ok(Box::new(regex::NotClass(try!(get_char_class(parser)))))
+                Ok(Box::new(regex::Literal(
+                    regex::NotClass(try!(get_char_class(parser)))
+                )))
             } else {
-                Ok(Box::new(regex::Class(try!(get_char_class(parser)))))
+                Ok(Box::new(regex::Literal(
+                    regex::Class(try!(get_char_class(parser)))
+                )))
             }
         }
         token::Literal(token::Lit::Char(ch), _) =>
-            Ok(Box::new(regex::Char(parse::char_lit(&*ch.as_str()).0 as u8))),
+            Ok(Box::new(regex::Literal(
+                regex::Char(parse::char_lit(&*ch.as_str()).0 as u8)
+            ))),
         token::Literal(token::Lit::Str_(id), _) =>
             match regex::string(&*id.as_str()) {
                 Some(reg) => Ok(reg),

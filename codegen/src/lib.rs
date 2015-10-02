@@ -19,7 +19,6 @@ mod lexer;
 mod nfa;
 mod parser;
 mod regex;
-mod util;
 pub mod rt;
 
 // the main rustlex macro
