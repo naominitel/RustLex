@@ -261,7 +261,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
         fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(name), expr.clone()));
     }
 
-    let initial = lex.conditions[0].1;
+    let initial = lex.auto.initials[lex.conditions[0].1];
     fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_input")),
         quote_expr!(&*cx, ::rustlex::rt::RustLexLexer::new(reader))));
     fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_state")),
@@ -272,6 +272,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     let ident = lex.ident;
     // condition methods
     let mut items:Vec<P<ast::Item>> = lex.conditions.iter().map(|&(cond,st)| {
+        let st = lex.auto.initials[st];
         let cond = ast::Ident::with_empty_ctxt(cond);
         quote_item!(cx,
             impl<R: ::std::io::Read> $ident<R> {

@@ -2,7 +2,6 @@ use std::iter;
 use nfa;
 use nfa::StateData;
 use std::result;
-use syntax::ast;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -29,7 +28,7 @@ pub struct State<T> {
 
 pub struct Automaton<T> {
     pub states: Vec<State<T>>,
-    pub initial: usize
+    pub initials: Vec<usize>
 }
 
 // used by the determinization algorithm
@@ -45,7 +44,10 @@ impl<T> Automaton<T> where T: nfa::StateData {
     // transition between the differents DFA.
     // The resulting DFA is thus not strictly a DFA but this is needed to
     // implement "conditions" in the lexical analysers
-    pub fn determinize<S: nfa::State<Data = T>>(&mut self, nfa: &nfa::Automaton<S>) {
+    // returns the index of the initial state of the created DFA in the
+    // `initials' vector
+    pub fn determinize<S: nfa::State<Data = T>>(&mut self, nfa: &nfa::Automaton<S>)
+        -> usize {
         // TODO: should the action of this state always be 0? the only
         // case in which we would want this is to recognize the empty word.
         let (eclos, _) = nfa.eclosure_(nfa.initial);
@@ -86,13 +88,15 @@ impl<T> Automaton<T> where T: nfa::StateData {
             }
         }
 
-        self.initial = ini;
+        let ret = self.initials.len();
+        self.initials.push(ini);
+        ret
     }
 
     pub fn new() -> Automaton<T> {
         let mut ret = Automaton {
             states: vec!(),
-            initial: 0
+            initials: vec!()
         };
 
         // create a dead state
@@ -116,7 +120,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: usize, initials: &mut [(ast::Name, usize)])
+    pub fn minimize(&self, acts_count: usize)
         -> result::Result<Automaton<T>, MinimizationError>
         where T: Clone + Eq + Hash {
         // groups are stored as an array indexed by a state number
@@ -209,7 +213,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
         // construct the minimal DFA
         let mut ret = Automaton {
             states: Vec::with_capacity(subgroups.len()),
-            initial: groups[self.initial] + 1
+            initials: Vec::with_capacity(self.initials.len()),
         };
 
         // create the dead state
@@ -257,9 +261,8 @@ impl<T> Automaton<T> where T: nfa::StateData {
         }
 
         // update the initial state numbers of each condition
-        for c in initials.iter_mut() {
-            let (n, st) = *c;
-            *c = (n, groups[st] + 1);
+        for c in self.initials.iter() {
+            ret.initials.push(groups[*c] + 1);
         }
 
         Ok(ret)
@@ -273,7 +276,10 @@ impl<T> Automaton<T> where T: nfa::StateData {
         writeln!(out, "digraph automata {{");
         writeln!(out, "\trankdir = LR;");
         writeln!(out, "\tsize = \"4,4\";");
-        writeln!(out, "\tnode [shape=box]; {};", self.initial);
+
+        for i in self.initials.iter() {
+            writeln!(out, "\tnode [shape=box]; {};", i);
+        }
 
         let mut i = 0usize;
 

@@ -96,14 +96,13 @@ impl Lexer {
             info!("building...");
             let nfa = regex::build_nfa(&asts[..], &def.defs[..]);
             info!("determinizing...");
-            dfas.determinize(&nfa);
 
             // store the initial ID of auto for this condition
-            conds.push((name, dfas.initial));
+            conds.push((name, dfas.determinize(&nfa)));
         }
 
         info!("minimizing...");
-        match dfas.minimize(acts.len(), &mut conds) {
+        match dfas.minimize(acts.len()) {
             Ok(dfa) => Lexer {
                 tokens: def.tokens,
                 ident: def.ident,
