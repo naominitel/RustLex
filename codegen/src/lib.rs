@@ -14,6 +14,7 @@ use syntax::ast::{Ident, TokenTree};
 use syntax::codemap::Span;
 use syntax::ext::base::{ExtCtxt, MacResult};
 
+mod analysis;
 mod dfa;
 mod lexer;
 mod nfa;

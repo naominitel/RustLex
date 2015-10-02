@@ -1,15 +1,12 @@
 use std::iter;
 use nfa;
 use nfa::StateData;
-use std::result;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::iter::repeat;
 use std::io::Write;
 use bit_set::BitSet;
-
-pub use self::MinimizationError::UnreachablePattern;
 
 /* deterministic finite automaton */
 
@@ -29,12 +26,6 @@ pub struct State<T> {
 pub struct Automaton<T> {
     pub states: Vec<State<T>>,
     pub initials: Vec<usize>
-}
-
-// used by the determinization algorithm
-
-pub enum MinimizationError {
-    UnreachablePattern(usize)
 }
 
 impl<T> Automaton<T> where T: nfa::StateData {
@@ -120,9 +111,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
 
     // construct an equivalent DFA whose number of state is minimal for the
     // recognized input langage
-    pub fn minimize(&self, acts_count: usize)
-        -> result::Result<Automaton<T>, MinimizationError>
-        where T: Clone + Eq + Hash {
+    pub fn minimize(&self) -> Automaton<T> where T: Clone + Eq + Hash {
         // groups are stored as an array indexed by a state number
         // giving a group number.
         let mut groups = Vec::with_capacity(self.states.len());
@@ -145,7 +134,8 @@ impl<T> Automaton<T> where T: nfa::StateData {
         // of subgroups of the form (gr, st) where gr is the number of the
         // subgroup (it may be the same as the original group), and st the
         // number of a representing state
-        let mut subgroups: Vec<Vec<(usize, usize)>> = repeat(vec!()).take(acts_count).collect();
+        let mut subgroups: Vec<Vec<(usize, usize)>> =
+            iter::repeat(vec!()).take(next_group).collect();
         loop {
             // subgroups become groups, reinitialize subgroups
             for i in subgroups.iter_mut() {
@@ -233,14 +223,8 @@ impl<T> Automaton<T> where T: nfa::StateData {
         //   allow us to find representing states for each groups
         // the number of a state of the new DFA will be the number of the
         // group of which it is a representing state
-        let mut action = 0;
         for gr in subgroups.iter() {
-            if gr.is_empty() {
-                error!("action {} unreachable", action);
-                return Err(UnreachablePattern(action));
-            }
             let (_, st) = gr[0];
-
             let st = &self.states[st];
             let state = ret.create_state(st.data.clone(), None);
             let state = &mut ret.states[state];
@@ -256,8 +240,6 @@ impl<T> Automaton<T> where T: nfa::StateData {
                 }
                 ch += 1
             };
-
-            action += 1;
         }
 
         // update the initial state numbers of each condition
@@ -265,7 +247,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
             ret.initials.push(groups[*c] + 1);
         }
 
-        Ok(ret)
+        ret
     }
 
     #[allow(dead_code)]

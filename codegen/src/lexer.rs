@@ -1,3 +1,4 @@
+use analysis;
 use dfa;
 use nfa::State;
 use regex;
@@ -54,8 +55,8 @@ pub struct LexerDef {
 pub struct Lexer {
     tokens:Ident,
     ident:Ident,
-    auto: dfa::Automaton<regex::Action>,
-    actions: Vec<P<Expr>>,
+    pub auto: dfa::Automaton<regex::Action>,
+    pub actions: Vec<P<Expr>>,
     conditions: Vec<(Name, usize)>,
     properties: Vec<Prop>
 }
@@ -101,21 +102,24 @@ impl Lexer {
             conds.push((name, dfas.determinize(&nfa)));
         }
 
+        info!("checking reachability... ");
+        let unreachable = analysis::find_unreachable_patterns(&dfas, acts.len());
+        for regex::Action(act) in unreachable.into_iter() {
+            cx.span_err(acts[act].span, "unreachable pattern");
+            cx.fileline_help(acts[act].span, "make sure it is not included \
+                    in another pattern ; latter patterns have precedence");
+        }
+
+        cx.parse_sess.span_diagnostic.handler.abort_if_errors();
+
         info!("minimizing...");
-        match dfas.minimize(acts.len()) {
-            Ok(dfa) => Lexer {
-                tokens: def.tokens,
-                ident: def.ident,
-                auto: dfa,
-                actions: acts,
-                conditions: conds,
-                properties: def.properties.clone()
-            },
-            Err(dfa::UnreachablePattern(pat)) => {
-                cx.span_note(acts[pat].span, "make sure it is not included \
-                    in another pattern. Latter patterns have precedence");
-                cx.span_fatal(acts[pat].span, "unreachable pattern")
-            }
+        Lexer {
+            tokens: def.tokens,
+            ident: def.ident,
+            auto: dfas.minimize(),
+            actions: acts,
+            conditions: conds,
+            properties: def.properties.clone()
         }
     }
 
