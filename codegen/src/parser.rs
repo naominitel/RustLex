@@ -162,10 +162,10 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                             return Err(parser.span_fatal(last_span,
                                 "invalid character range"))
                         }
-                        ret.push(ch .. ch2 + 1);
+                        ret.push(ch .. ch2);
                     }
 
-                    _ => { ret.push(ch .. ch + 1); }
+                    _ => { ret.push(ch .. ch); }
                 }
             }
 
@@ -176,7 +176,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                         "bad string constant in character class"))
                 }
                 for b in id.as_str().bytes() {
-                    ret.push(b .. b + 1);
+                    ret.push(b .. b);
                 }
             }
 

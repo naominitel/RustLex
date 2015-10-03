@@ -21,7 +21,7 @@ impl CharSet {
 
     pub fn contains(&self, item: u8) -> bool {
         let CharSet(ref vec) = *self;
-        vec.iter().any(|x| x.start <= item && item < x.end)
+        vec.iter().any(|x| x.start <= item && item <= x.end)
     }
 }
 
