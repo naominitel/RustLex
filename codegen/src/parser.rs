@@ -136,7 +136,7 @@ fn get_properties<'a>(parser: &mut Parser)
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
 fn get_char_class<T: Tokenizer>(parser: &mut T)
-        -> Result<regex::CharSet, FatalError> {
+        -> Result<regex::CharSet<char>, FatalError> {
     let mut ret = regex::CharSet::new();
     loop {
         let tok = try!(parser.bump_and_get());
@@ -146,7 +146,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
             }
 
             token::Literal(token::Lit::Char(i), _) => {
-                let ch = parse::char_lit(&*i.as_str()).0 as u8;
+                let ch = parse::char_lit(&*i.as_str()).0;
 
                 match *parser.token() {
                     token::BinOp(token::Minus) => {
@@ -154,7 +154,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                         try!(parser.bump());
                         let ch2 = match try!(parser.bump_and_get()) {
                             token::Literal(token::Lit::Char(ch), _) =>
-                                parse::char_lit(&*ch.as_str()).0 as u8,
+                                parse::char_lit(&*ch.as_str()).0,
                             _ => return Err(parser.unexpected())
                         };
                         if ch >= ch2 {
@@ -175,7 +175,7 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
                     return Err(parser.span_fatal(last_span,
                         "bad string constant in character class"))
                 }
-                for b in id.as_str().bytes() {
+                for b in id.as_str().chars() {
                     ret.push(b .. b);
                 }
             }
@@ -216,7 +216,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env)
         }
         token::Literal(token::Lit::Char(ch), _) =>
             Ok(Box::new(regex::Literal(
-                regex::Char(parse::char_lit(&*ch.as_str()).0 as u8)
+                regex::Char(parse::char_lit(&*ch.as_str()).0)
             ))),
         token::Literal(token::Lit::Str_(id), _) =>
             match regex::string(&*id.as_str()) {

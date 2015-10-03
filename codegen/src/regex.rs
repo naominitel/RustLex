@@ -7,19 +7,19 @@ pub use self::RegexNode::{Or, Cat, Maybe, Closure, Var, Literal, Bind};
 pub use self::Const::{Class, NotClass, Char, Any};
 
 #[derive(Clone)]
-pub struct CharSet(Vec<Range<u8>>);
+pub struct CharSet<T>(Vec<Range<T>>);
 
-impl CharSet {
-    pub fn new() -> CharSet {
+impl<T> CharSet<T> {
+    pub fn new() -> CharSet<T> {
         CharSet(Vec::new())
     }
 
-    pub fn push(&mut self, range: Range<u8>) {
+    pub fn push(&mut self, range: Range<T>) {
         let CharSet(ref mut vec) = *self;
         vec.push(range);
     }
 
-    pub fn contains(&self, item: u8) -> bool {
+    pub fn contains(&self, item: T) -> bool where T: PartialOrd {
         let CharSet(ref vec) = *self;
         vec.iter().any(|x| x.start <= item && item <= x.end)
     }
@@ -27,9 +27,9 @@ impl CharSet {
 
 #[derive(Clone)]
 enum Const {
-    Class(CharSet),
-    NotClass(CharSet),
-    Char(u8),
+    Class(CharSet<char>),
+    NotClass(CharSet<char>),
+    Char(char),
     Any,
 }
 
@@ -54,7 +54,7 @@ enum RegexNode {
 }
 
 pub fn string(string: &str) -> Option<Regex> {
-    let mut it = string.bytes();
+    let mut it = string.chars();
     let mut reg = Box::new(Literal(Char(match it.next() {
         Some(ch) => ch,
         None => return None
@@ -84,6 +84,20 @@ impl nfa::StateData for Action {
     }
 }
 
+// labels on the transition of the NFA. similar to the Const type
+// used in the regex AST except that we now work with bytes instead
+// of characters. Unicode characters have been expanded into several
+// states and transitions labeled with the bytes that correspond to
+// the representation of this character in a given encoding (e.g.
+// UTF-8).
+// we don't have Any here, since it can easyly be represented as
+// NotClass(vec![])
+pub enum Label {
+    Byte(u8),
+    Class(CharSet<u8>),
+    NotClass(CharSet<u8>)
+}
+
 pub struct State {
     // the McNaughton-Yamada-Thompson
     // construction algorithm will build
@@ -98,7 +112,7 @@ pub struct State {
     // case in which there are many transitions
     // to a single state (typically a character
     // class)
-    trans: Option<(Const, usize)>,
+    trans: Option<(Label, usize)>,
 
     // 0: no action. otherwise, it's
     // a f1nal state with an action
@@ -123,10 +137,9 @@ impl nfa::State for State {
 
     fn transition(&self, c: u8) -> IntoIter<usize> {
         match self.trans {
-            Some((Class(ref set), dst)) if set.contains(c) => Some(dst),
-            Some((NotClass(ref set), dst)) if !set.contains(c) => Some(dst),
-            Some((Char(ch), dst)) if ch == c => Some(dst),
-            Some((Any, dst)) => Some(dst),
+            Some((Label::Class(ref set), dst)) if set.contains(c) => Some(dst),
+            Some((Label::NotClass(ref set), dst)) if !set.contains(c) => Some(dst),
+            Some((Label::Byte(ch), dst)) if ch == c => Some(dst),
             _ => None
         }.into_iter()
     }
@@ -228,17 +241,21 @@ impl RegexNode {
                 (new_init, new_f1nal)
             }
 
-            Literal(Class(ref vec)) => {
+            Literal(Class(CharSet(ref vec))) => {
                 let f1nal = auto.create_state();
                 let init = auto.create_state();
-                auto.states[init].trans = Some((Class(vec.clone()), f1nal));
+                auto.states[init].trans = Some((Label::Class(CharSet(
+                    vec.iter().map(|c| c.start as u8 .. c.end as u8).collect()
+                )), f1nal));
                 (init, f1nal)
             }
 
-            Literal(NotClass(ref set)) => {
+            Literal(NotClass(CharSet(ref set))) => {
                 let f1nal = auto.create_state();
                 let init = auto.create_state();
-                auto.states[init].trans = Some((NotClass(set.clone()), f1nal));
+                auto.states[init].trans = Some((Label::NotClass(CharSet(
+                    set.iter().map(|c| c.start as u8 .. c.end as u8).collect()
+                )), f1nal));
                 (init, f1nal)
             }
 
@@ -249,14 +266,14 @@ impl RegexNode {
             Literal(Char(ch)) => {
                 let f1nal = auto.create_state();
                 let init = auto.create_state();
-                auto.states[init].trans = Some((Char(ch), f1nal));
+                auto.states[init].trans = Some((Label::Byte(ch as u8), f1nal));
                 (init, f1nal)
             }
 
             Literal(Any) => {
                 let f1nal = auto.create_state();
                 let init = auto.create_state();
-                auto.states[init].trans = Some((Any, f1nal));
+                auto.states[init].trans = Some((Label::NotClass(CharSet(vec![])), f1nal));
                 (init, f1nal)
             }
 
