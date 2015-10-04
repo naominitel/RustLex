@@ -1,1 +1,30 @@
 language: rust
+
+sudo: false
+
+rust:
+  - nightly
+  - beta
+  - stable
+
+script:
+  - |
+    set -e
+    if [ "$TRAVIS_RUST_VERSION" = "nightly" ]
+    then
+      cd codegen
+      cargo build --verbose --features with-syntex
+      cargo test --verbose --features with-syntex
+      cargo clean
+      cargo build --verbose
+      cargo test --verbose
+      cd ..
+      cargo build --verbose
+      cargo test --verbose
+    else
+      cd codegen
+      cargo build --verbose --features with-syntex
+      cargo test --verbose --features with-syntex
+      cd ..
+    fi
+    set +e
