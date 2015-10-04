@@ -2,12 +2,13 @@ use std::ops::Range;
 use std::option::IntoIter;
 use fsa::nfa;
 use fsa::nfa::{No, One, Two, More};
+use unicode;
 
 pub use self::RegexNode::{Or, Cat, Maybe, Closure, Var, Literal, Bind};
 pub use self::Const::{Class, NotClass, Char, Any};
 
 #[derive(Clone)]
-pub struct CharSet<T>(Vec<Range<T>>);
+pub struct CharSet<T>(pub Vec<Range<T>>);
 
 impl<T> CharSet<T> {
     pub fn new() -> CharSet<T> {
@@ -112,7 +113,7 @@ pub struct State {
     // case in which there are many transitions
     // to a single state (typically a character
     // class)
-    trans: Option<(Label, usize)>,
+    pub trans: Option<(Label, usize)>,
 
     // 0: no action. otherwise, it's
     // a f1nal state with an action
@@ -154,7 +155,8 @@ pub type Automaton = nfa::Automaton<State>;
 // creates a new Non-deterministic Finite Automaton using the
 // McNaughton-Yamada-Thompson construction
 // takes several regular expressions, each with an attached action
-pub fn build_nfa(regexs: &[(Regex, Action)], defs: &[Regex]) -> Automaton {
+pub fn build_nfa<Encoding>(regexs: &[(Regex, Action)], defs: &[Regex])
+    -> Automaton where Encoding: unicode::Encode {
     let mut ret = Automaton {
         states: Vec::new(),
         initial: 0usize
@@ -164,7 +166,7 @@ pub fn build_nfa(regexs: &[(Regex, Action)], defs: &[Regex]) -> Automaton {
     let mut etrans = Vec::new();
 
     for &(ref reg, act) in regexs.iter() {
-        let (init, f1nal) = reg.to_automaton(&mut ret, defs);
+        let (init, f1nal) = reg.to_automaton::<Encoding>(&mut ret, defs);
         etrans.push(init);
         ret.states[f1nal].action = act;
     }
@@ -181,12 +183,13 @@ impl RegexNode {
     // won't have to be changed
     // the initial state is always the last state created, this way we can reuse
     // it in the concatenation case and avoid adding useless e-transitions
-    fn to_automaton(&self, auto: &mut Automaton, defs: &[Regex]) -> (usize, usize) {
+    fn to_automaton<Encoding>(&self, auto: &mut Automaton, defs: &[Regex])
+        -> (usize, usize) where Encoding: unicode::Encode {
         match *self {
             Or(ref left, ref right) => {
                 // build sub-FSMs
-                let (linit, lf1nal) = left.to_automaton(auto, defs);
-                let (rinit, rf1nal) = right.to_automaton(auto, defs);
+                let (linit, lf1nal) = left.to_automaton::<Encoding>(auto, defs);
+                let (rinit, rf1nal) = right.to_automaton::<Encoding>(auto, defs);
 
                 // create new f1nal and initial states
                 let new_f1nal = auto.create_state();
@@ -203,7 +206,7 @@ impl RegexNode {
             }
 
             Cat(ref fst, ref snd) => {
-                let (  _  , sf1nal) = snd.to_automaton(auto, defs);
+                let (  _  , sf1nal) = snd.to_automaton::<Encoding>(auto, defs);
 
                 // remove the initial state of the right part
                 // this is possible at a cheap cost since the initial
@@ -212,7 +215,7 @@ impl RegexNode {
                     etrans, trans, ..
                 } = auto.states.pop().unwrap();
 
-                let (finit, ff1nal) = fst.to_automaton(auto, defs);
+                let (finit, ff1nal) = fst.to_automaton::<Encoding>(auto, defs);
                 auto.states[ff1nal].etrans = etrans;
                 auto.states[ff1nal].trans = trans;
 
@@ -220,7 +223,7 @@ impl RegexNode {
             }
 
             Maybe(ref reg) => {
-                let (init, f1nal) = reg.to_automaton(auto, defs);
+                let (init, f1nal) = reg.to_automaton::<Encoding>(auto, defs);
                 let new_f1nal = auto.create_state();
                 let new_init = auto.create_state();
 
@@ -231,7 +234,7 @@ impl RegexNode {
             }
 
             Closure(ref reg) => {
-                let (init, f1nal) = reg.to_automaton(auto, defs);
+                let (init, f1nal) = reg.to_automaton::<Encoding>(auto, defs);
                 let new_f1nal = auto.create_state();
                 let new_init = auto.create_state();
 
@@ -241,44 +244,28 @@ impl RegexNode {
                 (new_init, new_f1nal)
             }
 
-            Literal(Class(CharSet(ref vec))) => {
-                let f1nal = auto.create_state();
-                let init = auto.create_state();
-                auto.states[init].trans = Some((Label::Class(CharSet(
-                    vec.iter().map(|c| c.start as u8 .. c.end as u8).collect()
-                )), f1nal));
-                (init, f1nal)
+            Literal(Class(ref set)) => {
+                Encoding::class_to_automaton(set, auto)
             }
 
-            Literal(NotClass(CharSet(ref set))) => {
-                let f1nal = auto.create_state();
-                let init = auto.create_state();
-                auto.states[init].trans = Some((Label::NotClass(CharSet(
-                    set.iter().map(|c| c.start as u8 .. c.end as u8).collect()
-                )), f1nal));
-                (init, f1nal)
+            Literal(NotClass(ref set)) => {
+                Encoding::not_class_to_automaton(set, auto)
             }
 
             Var(idx) => {
-                defs[idx].to_automaton(auto, defs)
+                defs[idx].to_automaton::<Encoding>(auto, defs)
             }
 
             Literal(Char(ch)) => {
-                let f1nal = auto.create_state();
-                let init = auto.create_state();
-                auto.states[init].trans = Some((Label::Byte(ch as u8), f1nal));
-                (init, f1nal)
+                Encoding::char_to_automaton(ch, auto)
             }
 
             Literal(Any) => {
-                let f1nal = auto.create_state();
-                let init = auto.create_state();
-                auto.states[init].trans = Some((Label::NotClass(CharSet(vec![])), f1nal));
-                (init, f1nal)
+                Encoding::any_to_automaton(auto)
             }
 
             Bind(_, ref expr) => {
-                expr.to_automaton(auto, defs)
+                expr.to_automaton::<Encoding>(auto, defs)
             }
         }
     }

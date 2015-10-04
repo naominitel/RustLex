@@ -1,6 +1,7 @@
 use analysis;
 use fsa::dfa;
 use regex;
+use unicode;
 use syntax::ast::Expr;
 use syntax::ast::Ident;
 use syntax::ast::Name;
@@ -94,7 +95,7 @@ impl Lexer {
             // build a NFA for this condition, determinize it
             // and add it to the built DFA
             info!("building...");
-            let nfa = regex::build_nfa(&asts[..], &def.defs[..]);
+            let nfa = regex::build_nfa::<unicode::Ascii>(&asts[..], &def.defs[..]);
             info!("determinizing...");
 
             // store the initial ID of auto for this condition

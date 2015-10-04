@@ -19,6 +19,7 @@ mod analysis;
 mod lexer;
 mod parser;
 mod regex;
+mod unicode;
 pub mod rt;
 
 // the main rustlex macro
