@@ -1,5 +1,7 @@
 ### RustLex: lexical analysers generator for Rust
 
+[![Build Status](https://travis-ci.org/naominitel/rustlex.svg)](https://travis-ci.org/naominitel/rustlex)
+
 RustLex is a lexical analysers generator, i.e. a program that generate [lexical
 analysers](http://en.wikipedia.org/wiki/Lexical_analysis) for use in compiler
 from a description of the language using regular expressions. It is similar to
