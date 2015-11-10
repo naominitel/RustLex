@@ -20,6 +20,17 @@ pub enum Etrans {
     More(Vec<usize>)
 }
 
+impl Etrans {
+    pub fn push(&mut self, item: usize) {
+        match *self {
+            No => *self = One(item),
+            One(x) => *self = Two(x, item),
+            Two(x, y) => *self = More(vec![x, y, item]),
+            More(ref mut v) => v.push(item)
+        }
+    }
+}
+
 pub trait StateData {
     fn no_data() -> Self;
     fn combine(a: Self, b: Self) -> Self;
