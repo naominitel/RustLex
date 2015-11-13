@@ -103,6 +103,15 @@ impl Lexer {
             conds.push((name, dfas.determinize(&nfa)));
         }
 
+        for &s in dfas.initials.iter() {
+            let regex::Action(act) = dfas.states[s].data;
+            if act != 0 {
+                cx.span_err(acts[act].span, "this rule accepts the empty word");
+                cx.fileline_help(acts[act].span, "this might cause the automaton \
+                        to loop on some inputs");
+            }
+        }
+
         info!("checking reachability and completeness... ");
         let analysis::Analysis { unreachable, incomplete } =
             analysis::check_automaton(&dfas, acts.len());

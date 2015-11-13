@@ -19,7 +19,7 @@ pub enum Token {
 rustlex! ConditionLexer {
     let OPEN = '{';
     let CLOSE = '}';
-    let STUFF = [^'{''}']*;
+    let STUFF = [^'{''}']+;
     INITIAL {
         STUFF => |lexer: &mut ConditionLexer<R>|
             Some(TokOuterStuff(lexer.yystr().trim().to_string()))
@@ -27,6 +27,7 @@ rustlex! ConditionLexer {
             lexer.INNER();
             None
         }
+        CLOSE => |_: &mut ConditionLexer<R>| None
     }
     INNER {
         STUFF => |lexer: &mut ConditionLexer<R>|
@@ -35,6 +36,7 @@ rustlex! ConditionLexer {
             lexer.INITIAL();
             None
         }
+        OPEN => |_: &mut ConditionLexer<R>| None
     }
 }
 
