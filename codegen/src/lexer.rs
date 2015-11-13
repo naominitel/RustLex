@@ -27,7 +27,8 @@ pub struct Rule {
 // set of rules
 pub struct Condition {
     pub name: Name,
-    pub rules: Vec<Rule>
+    pub rules: Vec<Rule>,
+    pub span: Span
 }
 
 pub type Prop = (Name, P<Ty>, P<Expr>);
@@ -102,12 +103,19 @@ impl Lexer {
             conds.push((name, dfas.determinize(&nfa)));
         }
 
-        info!("checking reachability... ");
-        let unreachable = analysis::find_unreachable_patterns(&dfas, acts.len());
+        info!("checking reachability and completeness... ");
+        let analysis::Analysis { unreachable, incomplete } =
+            analysis::check_automaton(&dfas, acts.len());
+
         for regex::Action(act) in unreachable.into_iter() {
             cx.span_err(acts[act].span, "unreachable pattern");
             cx.fileline_help(acts[act].span, "make sure it is not included \
                     in another pattern ; latter patterns have precedence");
+        }
+
+        for cond in incomplete.into_iter() {
+            cx.span_err(def.conditions[cond].span, "this automaton is incomplete");
+            cx.fileline_help(def.conditions[cond].span, "maybe add a catch-all rule?");
         }
 
         cx.parse_sess.span_diagnostic.handler.abort_if_errors();

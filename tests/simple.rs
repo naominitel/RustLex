@@ -16,6 +16,7 @@ pub enum Token {
 
 rustlex! SimpleLexer {
     let A = 'a';
+    . => |_:&mut SimpleLexer<R>| None
     A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
@@ -40,6 +41,7 @@ pub enum TokenB {
 rustlex! OtherLexer {
     token TokenB;
     let B = 'b';
+    . => |_:&mut OtherLexer<R>| None
     B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 

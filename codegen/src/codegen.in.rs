@@ -178,14 +178,8 @@ pub fn actions_match(lex:&Lexer, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
         i += 1;
     }
 
-    let def_act = quote_expr!(&*cx, Box::new(|lexer:&mut $ident<R>| -> Option<$tokens> {
-        // default action is printing on stdout
-        lexer._input.pos = lexer._input.tok;
-        lexer._input.pos.off += 1;
-        let b: &u8 = lexer._input.inp[
-            lexer._input.tok.buf].get(lexer._input.tok.off);
-        print!("{}", *b as char);
-        None
+    let def_act = quote_expr!(&*cx, Box::new(|_:&mut $ident<R>| -> Option<$tokens> {
+        unreachable!()
     }) as Box<$action_type>);
 
     let def_pat = cx.pat_wild(sp);

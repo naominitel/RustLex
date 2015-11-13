@@ -39,10 +39,8 @@ impl<T> Automaton<T> where T: nfa::StateData {
     // `initials' vector
     pub fn determinize<S: nfa::State<Data = T>>(&mut self, nfa: &nfa::Automaton<S>)
         -> usize {
-        // TODO: should the action of this state always be 0? the only
-        // case in which we would want this is to recognize the empty word.
-        let (eclos, _) = nfa.eclosure_(nfa.initial);
-        let ini = self.create_state(S::Data::no_data(), Some(eclos));
+        let (eclos, data) = nfa.eclosure_(nfa.initial);
+        let ini = self.create_state(data, Some(eclos));
         let mut unmarked = vec!(ini);
 
         while !unmarked.is_empty() {

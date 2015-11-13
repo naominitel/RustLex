@@ -43,6 +43,7 @@ rustlex! ComplexLexer {
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
+    . => |_:&mut ComplexLexer<R>| { None }
     INT => |lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr()[..].parse().unwrap()))
     HEX => |lexer:&mut ComplexLexer<R>| {
         let s = lexer.yystr();

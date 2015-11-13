@@ -16,6 +16,7 @@ mod l {
 
     rustlex! SimpleLexer {
         let A = 'a';
+        . => |_:&mut SimpleLexer<R>| None
         A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
     }
 }

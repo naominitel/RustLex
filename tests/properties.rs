@@ -20,6 +20,7 @@ rustlex! PropertiesLexer {
     property depth:isize = 0;
     let OPEN = '(';
     let CLOSE = ')';
+    . => |_:&mut PropertiesLexer<R>| { None }
     OPEN => |lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
     CLOSE => |lexer:&mut PropertiesLexer<R>| {
         lexer.depth -= 1;

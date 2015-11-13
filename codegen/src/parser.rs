@@ -361,6 +361,7 @@ fn get_conditions(parser: &mut Parser, env: &Env)
     let mut ret = Vec::new();
     let initial = Condition {
         name: token::intern("INITIAL"),
+        span: parser.span,
         rules: Vec::new()
     };
 
@@ -382,6 +383,7 @@ fn get_conditions(parser: &mut Parser, env: &Env)
                 if parser.look_ahead(1, |tok| tok == &token::OpenDelim(token::Brace)) {
                     // ok it's a condition
                     // bump 2 times: the identifier and the lbrace
+                    let sp = parser.span;
                     try!(parser.bump());
                     try!(parser.bump());
 
@@ -399,7 +401,7 @@ fn get_conditions(parser: &mut Parser, env: &Env)
                     }
 
                     // nope, create it
-                    ret.push(Condition { rules: rules, name: id.name });
+                    ret.push(Condition { rules: rules, span: sp, name: id.name });
                     cond_names.insert(id.name, ret.len() - 1);
                 } else {
                     // ok, it's not a condition, so it's a rule of the form
