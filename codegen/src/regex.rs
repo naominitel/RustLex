@@ -27,7 +27,7 @@ impl<T> CharSet<T> {
 }
 
 #[derive(Clone)]
-enum Const {
+pub enum Const {
     Class(CharSet<char>),
     NotClass(CharSet<char>),
     Char(char),
@@ -37,7 +37,7 @@ enum Const {
 pub type Regex = Box<RegexNode>;
 
 #[derive(Clone)]
-enum RegexNode {
+pub enum RegexNode {
     // binary operators
     Or(Regex, Regex),
     Cat(Regex, Regex),

@@ -106,9 +106,10 @@ impl Lexer {
         for &s in dfas.initials.iter() {
             let regex::Action(act) = dfas.states[s].data;
             if act != 0 {
-                cx.span_err(acts[act].span, "this rule accepts the empty word");
-                cx.fileline_help(acts[act].span, "this might cause the automaton \
-                        to loop on some inputs");
+                cx.struct_span_err(acts[act].span, "this rule accepts the empty word")
+                  .fileline_help(acts[act].span, "this might cause the automaton \
+                      to loop on some inputs")
+                  .emit();
             }
         }
 
@@ -117,17 +118,19 @@ impl Lexer {
             analysis::check_automaton(&dfas, acts.len());
 
         for regex::Action(act) in unreachable.into_iter() {
-            cx.span_err(acts[act].span, "unreachable pattern");
-            cx.fileline_help(acts[act].span, "make sure it is not included \
-                    in another pattern ; latter patterns have precedence");
+            cx.struct_span_err(acts[act].span, "unreachable pattern")
+              .fileline_help(acts[act].span, "make sure it is not included \
+                  in another pattern ; latter patterns have precedence")
+              .emit();
         }
 
         for cond in incomplete.into_iter() {
-            cx.span_err(def.conditions[cond].span, "this automaton is incomplete");
-            cx.fileline_help(def.conditions[cond].span, "maybe add a catch-all rule?");
+            cx.struct_span_err(def.conditions[cond].span, "this automaton is incomplete")
+              .fileline_help(def.conditions[cond].span, "maybe add a catch-all rule?")
+              .emit();
         }
 
-        cx.parse_sess.span_diagnostic.handler.abort_if_errors();
+        cx.parse_sess.span_diagnostic.abort_if_errors();
 
         info!("minimizing...");
         Lexer {

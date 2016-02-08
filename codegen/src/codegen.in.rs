@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use lexer::Lexer;
 use lexer::Prop;
 use regex;
@@ -7,7 +8,7 @@ use syntax::ast::Ident;
 use syntax::codemap;
 use syntax::codemap::CodeMap;
 use syntax::codemap::Span;
-use syntax::diagnostic;
+use syntax::errors;
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
@@ -23,7 +24,7 @@ pub struct CodeGenerator {
     // we need this to report
     // errors when the macro is
     // not called correctly
-    handler: diagnostic::SpanHandler,
+    handler: errors::Handler,
     span: Span,
 
     // items
@@ -111,7 +112,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
 
     let isp = P(ast::Item { ident:ident, attrs: vec![ docattr ], id:ast::DUMMY_NODE_ID,
         node: ast::ItemStruct(
-        P(ast::StructDef { ctor_id: None, fields: fields }),
+        ast::VariantData::Struct(fields, ast::DUMMY_NODE_ID),
         ast::Generics {
             lifetimes: Vec::new(),
             ty_params: ::syntax::owned_slice::OwnedSlice::from_vec(vec!(
@@ -133,10 +134,25 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
     isp
 }
 
-fn mk_span_handler() -> diagnostic::SpanHandler {
-    diagnostic::SpanHandler::new(
-        diagnostic::Handler::new(diagnostic::Auto, None, true),
-        CodeMap::new()
+#[cfg(feature = "with-syntex")]
+fn mk_span_handler() -> errors::Handler {
+    errors::Handler::new(
+        errors::ColorConfig::Auto,
+        None,
+        true,
+        false,
+        Rc::new(CodeMap::new())
+    )
+}
+
+#[cfg(not(feature = "with-syntex"))]
+fn mk_span_handler() -> errors::Handler {
+    errors::Handler::with_tty_emitter(
+        errors::ColorConfig::Auto,
+        None,
+        true,
+        false,
+        Rc::new(CodeMap::new())
     )
 }
 
