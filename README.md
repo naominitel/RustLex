@@ -12,7 +12,7 @@ analysers. The description of the analyser thus can be directly embedded into a
 Rust source file, and the generator code will be called by Rustc at the
  macro-expansion phase.
 
-#### Rustlex availibility and rust compatibility
+#### Rustlex availability and rust compatibility
 
 Rustlex using syntax extensions, it has to deal with rustc `libsyntax`.
 `libsyntax` is more or less the compiler guts, and it has been explicitely
