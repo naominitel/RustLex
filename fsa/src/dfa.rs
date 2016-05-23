@@ -1,6 +1,5 @@
 use std::iter;
 use nfa;
-use nfa::StateData;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;

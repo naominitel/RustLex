@@ -107,8 +107,7 @@ impl Lexer {
             let regex::Action(act) = dfas.states[s].data;
             if act != 0 {
                 cx.struct_span_err(acts[act].span, "this rule accepts the empty word")
-                  .fileline_help(acts[act].span, "this might cause the automaton \
-                      to loop on some inputs")
+                  .help("this might cause the automaton to loop on some inputs")
                   .emit();
             }
         }
@@ -119,14 +118,13 @@ impl Lexer {
 
         for regex::Action(act) in unreachable.into_iter() {
             cx.struct_span_err(acts[act].span, "unreachable pattern")
-              .fileline_help(acts[act].span, "make sure it is not included \
-                  in another pattern ; latter patterns have precedence")
+              .help("make sure it is not included in another pattern ; latter patterns have precedence")
               .emit();
         }
 
         for cond in incomplete.into_iter() {
             cx.struct_span_err(def.conditions[cond].span, "this automaton is incomplete")
-              .fileline_help(def.conditions[cond].span, "maybe add a catch-all rule?")
+              .help("maybe add a catch-all rule?")
               .emit();
         }
 
@@ -150,8 +148,8 @@ impl Lexer {
     //   make the writing of actions easier
     // - the Lexer struct and its impl block that implements the actual
     // code of simulation of the automaton
-    pub fn gen_code<'a>(&self, cx: &mut ExtCtxt, sp: Span) -> Box<MacResult+'a> {
+    pub fn gen_code<'cx>(&self, cx: &'cx mut ExtCtxt, sp: Span) -> Box<MacResult + 'cx> {
         info!("generating code...");
-        codegen::codegen(self, cx, sp) as Box<MacResult+'a>
+        codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
     }
 }
