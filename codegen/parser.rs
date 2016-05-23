@@ -409,6 +409,7 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
                     // regex => action, with regex beginning by an identifier
                     let reg = try!(get_regex(parser, &token::FatArrow, env));
                     let expr = try!(parser.parse_expr());
+                    parser.eat(&token::Comma);
                     ret[0].rules.push(Rule { pattern: reg, action: expr });
                 }
             }
@@ -418,6 +419,7 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
                 // beginning of a regular expression
                 let reg = try!(get_regex(parser, &token::FatArrow, env));
                 let expr = try!(parser.parse_expr());
+                parser.eat(&token::Comma);
                 ret[0].rules.push(Rule { pattern: reg, action: expr });
             }
         }
