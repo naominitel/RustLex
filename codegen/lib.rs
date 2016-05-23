@@ -32,7 +32,10 @@ pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTr
     );
 
     let def = parser::parse(ident, &mut p)
-        .unwrap_or_else( |_| panic!("error while parsing lexer"));
+        .unwrap_or_else(|mut e| {
+            e.emit();
+            cx.span_fatal(sp, "error while parsing lexer");
+        });
     let lex = lexer::Lexer::new(def, cx);
     lex.gen_code(cx, sp)
 }
