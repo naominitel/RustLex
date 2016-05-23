@@ -17,13 +17,13 @@ path = "lib.rs"
 with-syntex = ["quasi/with-syntex", "quasi_codegen/with-syntex", "syntex", "syntex_syntax"]
 
 [build-dependencies]
-quasi_codegen = { version = "*", optional = true }
-syntex        = { version = "*", optional = true }
+quasi_codegen = { version = "0.10.0", optional = true }
+syntex        = { version = "0.32.0", optional = true }
 
 [dependencies]
-bit-set = "*"
-log = "*"
-fsa = { path = "../fsa" }
-quasi         = { version = "*", optional = true }
-syntex        = { version = "*", optional = true }
-syntex_syntax = { version = "*", optional = true }
+bit-set = ">= 0.3.0"
+log = "0.3.6"
+rustlex_fsa   = { version = "0.3.3",  path = "../fsa" }
+quasi         = { version = "0.10.0", optional = true }
+syntex        = { version = "0.32.0", optional = true }
+syntex_syntax = { version = "0.32.0", optional = true }

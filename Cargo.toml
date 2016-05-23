@@ -15,4 +15,4 @@ path = "lib.rs"
 crate-type = ["dylib"]
 
 [dependencies]
-rustlex_codegen = { version = "*", path = "codegen" }
+rustlex_codegen = { version = "0.3.3", path = "codegen" }
