@@ -10,9 +10,11 @@ pub enum Token {
 
 rustlex! SimpleLexer {
     let A = 'a';
+    . => |_:&mut SimpleLexer<R>|     None
     A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
 }
 
+#[test]
 fn test_simple() {
     let expected = vec!(TokA("a".to_string()), TokA("a".to_string()));
     let str = "aa";
@@ -33,9 +35,11 @@ pub enum TokenB {
 rustlex! OtherLexer {
     token TokenB;
     let B = 'b';
+    . => |_:&mut OtherLexer<R>|     None
     B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
 }
 
+#[test]
 fn test_other() {
     let expected = vec!(TokB("b".to_string()), TokB("b".to_string()));
     let str = "bb";

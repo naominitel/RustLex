@@ -4,7 +4,6 @@ use nfa::StateData;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::iter::repeat;
 use std::io::Write;
 use bit_set::BitSet;
 
@@ -144,7 +143,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
             let mut new_groups = Vec::with_capacity(self.states.len());
             let mut modified = false;
 
-            'g: for s in (0 .. groups.len()) {
+            'g: for s in 0 .. groups.len() {
                 let group = groups[s];
 
                 // check if we have a subgroup of the group of s
@@ -155,7 +154,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
                     // 2 states are said similar if for each input
                     // symbol they have a transition to states that
                     // are in the same group of the current partition
-                    for i in (0 .. 255usize) {
+                    for i in 0 .. 255usize {
                         let (s1, s2) = (
                             self.states[st].trans[i],
                             self.states[s].trans[i]
@@ -277,7 +276,7 @@ impl<T> Automaton<T> where T: nfa::StateData {
 
         let mut i = 0usize;
         for st in self.states.iter() {
-            for ch in (0 .. 256usize) {
+            for ch in 0 .. 256usize {
                 match st.trans[ch] {
                     0 => (),
                     dst => {

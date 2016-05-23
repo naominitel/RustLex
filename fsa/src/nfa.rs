@@ -83,7 +83,7 @@ impl<T: State> Automaton<T> {
 
         macro_rules! add {
             ($state: expr) => {
-                if !ret.contains(&$state) {
+                if !ret.contains($state) {
                     ret.insert($state);
                     stack.push($state);
 
@@ -131,7 +131,7 @@ impl<T: State> Automaton<T> {
         write!(out, "\t");
 
         // outputs f1nal states as doublecircle-shaped nodes
-        for st in (0 .. self.states.len()) {
+        for st in 0 .. self.states.len() {
             if self.states[st].data() != T::Data::no_data() {
                 write!(out, "{} ", st);
             }
@@ -140,7 +140,7 @@ impl<T: State> Automaton<T> {
         writeln!(out, ";\n");
         writeln!(out, "\tnode [shape=circle];");
 
-        for st in (0 .. self.states.len()) {
+        for st in 0 .. self.states.len() {
             for ch in 0 .. 256 {
                 for dst in self.states[st].transition(ch as u8) {
                     let mut esc = String::new();
