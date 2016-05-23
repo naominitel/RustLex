@@ -7,7 +7,7 @@ pub fn main() {
 
     let mut registry = syntex::Registry::new();
     quasi_codegen::register(&mut registry);
-    let src = Path::new("src/codegen.in.rs");
+    let src = Path::new("codegen.in.rs");
     let dst = Path::new(&env::var_os("OUT_DIR").unwrap()).join("codegen.rs");
     registry.expand("", &src, &dst).unwrap();
 }

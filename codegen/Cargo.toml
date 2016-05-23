@@ -11,6 +11,7 @@ build = "build.rs"
 
 [lib]
 name = "rustlex_codegen"
+path = "lib.rs"
 
 [features]
 with-syntex = ["quasi/with-syntex", "quasi_codegen/with-syntex", "syntex", "syntex_syntax"]
