@@ -4,7 +4,6 @@ version = "0.0.0"
 build = "build.rs"
 
 [features]
-default     = ["nightly"]
 nightly     = ["rustlex"]
 with-syntex = ["rustlex_codegen/with-syntex", "syntex"]
 
