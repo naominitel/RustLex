@@ -12,7 +12,7 @@ license = "MIT"
 [lib]
 name = "rustlex"
 path = "lib.rs"
-crate-type = ["dylib"]
+plugin = true
 
 [dependencies]
 rustlex_codegen = { version = "0.3.3", path = "codegen" }
