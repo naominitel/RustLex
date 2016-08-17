@@ -11,7 +11,10 @@
 extern crate bit_set;
 extern crate fsa;
 
-use syntax::ast::{Ident, TokenTree};
+#[cfg(not(feature = "with-syntex"))] use syntax::tokenstream::TokenTree;
+#[cfg(feature = "with-syntex")] use syntax::ast::TokenTree;
+
+use syntax::ast::Ident;
 use syntax::codemap::Span;
 use syntax::ext::base::{ExtCtxt, MacResult};
 

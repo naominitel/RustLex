@@ -10,7 +10,7 @@ with-syntex = ["rustlex_codegen/with-syntex", "syntex"]
 [build-dependencies]
 rustlex         = { version = "*", path = "../..", optional = true }
 rustlex_codegen = { version = "*", path = "..",    optional = true }
-syntex          = { version = "*", optional = true }
+syntex          = { version = "0.32.0", optional = true }
 
 [dependencies]
 rustlex         = { version = "*", path = "../..", optional = true }
