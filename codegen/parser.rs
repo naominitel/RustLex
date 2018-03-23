@@ -149,7 +149,7 @@ fn get_char_class<'a, T: Tokenizer<'a>>(parser: &mut T)
             }
 
             token::Literal(token::Lit::Char(i), _) => {
-                let ch = parse::char_lit(&*i.as_str()).0;
+                let ch = parse::char_lit(&*i.as_str(), None).0;
 
                 match *parser.token() {
                     token::BinOp(token::Minus) => {
@@ -157,7 +157,7 @@ fn get_char_class<'a, T: Tokenizer<'a>>(parser: &mut T)
                         parser.bump();
                         let ch2 = match parser.bump_and_get() {
                             token::Literal(token::Lit::Char(ch), _) =>
-                                parse::char_lit(&*ch.as_str()).0,
+                                parse::char_lit(&*ch.as_str(), None).0,
                             _ => return Err(parser.unexpected())
                         };
                         if ch >= ch2 {
@@ -219,7 +219,7 @@ fn get_const<'a, T: Tokenizer<'a>>(parser: &mut T, env: &Env)
         }
         token::Literal(token::Lit::Char(ch), _) =>
             Ok(Box::new(regex::Literal(
-                regex::Char(parse::char_lit(&*ch.as_str()).0)
+                regex::Char(parse::char_lit(&*ch.as_str(), None).0)
             ))),
         token::Literal(token::Lit::Str_(id), _) =>
             match regex::string(&*id.as_str()) {
