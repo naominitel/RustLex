@@ -1,9 +1,3 @@
-#![feature(plugin,main)]
-#![plugin(rustlex)]
-
-#[allow(plugin_as_library)]
-extern crate rustlex;
-
 use std::io::BufReader;
 
 use self::Token::TokA;

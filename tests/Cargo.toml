@@ -1,0 +1,16 @@
+[package]
+name = "test"
+version = "0.0.0"
+build = "build.rs"
+
+[lib]
+name = "test"
+path = "lib.rs"
+
+[build-dependencies]
+rustlex_codegen = { version = "*", path = "../codegen" }
+syntex          = { version = "0.58.1" }
+
+[dependencies]
+rustlex         = { version = "*", path = ".." }
+log             = "*"

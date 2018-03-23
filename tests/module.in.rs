@@ -1,11 +1,3 @@
-#![feature(rustc_private,plugin)]
-#![plugin(rustlex)]
-
-#[allow(plugin_as_library)]
-extern crate rustlex;
-
-#[macro_use] extern crate log;
-
 mod l {
     use self::Token::TokA;
 
@@ -23,7 +15,7 @@ mod l {
 
 mod t {
 
-    use ::l::Token::TokA;
+    use super::l::Token::TokA;
     use std::io::BufReader;
 
     #[test]
@@ -31,7 +23,7 @@ mod t {
         let expected = vec!(TokA("a".to_string()), TokA("a".to_string()));
         let str = "aa";
         let inp = BufReader::new(str.as_bytes());
-        let lexer = ::l::SimpleLexer::new(inp);
+        let lexer = super::l::SimpleLexer::new(inp);
         let mut iter = expected.iter();
         for tok in lexer {
             assert!(iter.next().unwrap() == &tok);
