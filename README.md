@@ -1,8 +1,14 @@
-### RustLex: lexical analysers generator for Rust
+# RustLex: lexical analysers generator for Rust
 
-[0.4.0]: https://crates.io/crates/rustlex/0.4.0
+*Warning: RustLex 0.4.0 and higher works only for the nightly channel of Rust.*
 
-[![Build Status](https://travis-ci.org/naominitel/rustlex.svg)](https://travis-ci.org/naominitel/rustlex)
+*If you want to use RustLex with the nightly channel of Rust instead, use
+version [0.3.4] instead. Note though that syntex is no longer actively maintained
+and, while this version is provided for compatibility, its use is discouraged.*
+
+[0.3.4]: https://crates.io/crates/rustlex/0.3.4
+
+[![Build Status](https://travis-ci.org/naominitel/RustLex.svg)](https://travis-ci.org/naominitel/RustLex)
 
 RustLex is a lexical analysers generator, i.e. a program that generate [lexical
 analysers](http://en.wikipedia.org/wiki/Lexical_analysis) for use in compiler
@@ -11,94 +17,29 @@ the well-known [Lex](http://en.wikipedia.org/wiki/Lex_(software)) but is written
 in Rust and outputs Rust code as the analyser.  It differs from Lex by using
 Rust's new [syntax extensions]() system as the interface for defining lexical
 analysers. The description of the analyser thus can be directly embedded into a
-Rust source file, and the generator code will be called by Rustc at the
- macro-expansion phase.
+Rust source file, and the generator code will be called by `rustc` at the
+macro-expansion phase.
 
-#### Rustlex availability and rust compatibility
+## RustLex availability and Rust compatibility
 
 RustLex using syntax extensions, it has to deal with rustc `libsyntax`.
 `libsyntax` is more or less the compiler guts, and it has been explicitely
 excluded from the Rust 1.0 roadmap. Bottom line is, RustLex inline syntax
 generation is not usable with Rust stable.
 
-The way of using RustLex depends on the version of Rust you are using to build
-your project.
-
-#### Nightly
-
-This is the easy way. Just indicate a dependency to `rustlex` in your Cargo.toml
+Using Rust nightly, just indicate a dependency to `rustlex` in your Cargo.toml
 and add the following lines at the top of your crate:
 
 ```rust
 #![feature(plugin)]
 #![plugin(rustlex)]
 #[allow(plugin_as_library)] extern crate rustlex;
-#[macro_use] extern crate log;
 ```
 
 This will make `rustc` load the RustLex plugin which contains everything that
 is needed to generate the code.
 
-#### Stable
-
-On the stable channel, you have to use [syntex] to first perform code generation
-and then `include!()` the produced code into your project.
-
-[syntex]: https://github.com/erickt/rust-syntex
-
-Your `Cargo.toml` should look like that:
-
-```toml
-[package]
-name = "your package"
-version = "0.0.0"
-build = "build.rs"
-
-[build-dependencies]
-rustlex_codegen = { version = "*", features = ["with-syntex"] }
-syntex          = { version = "*", optional = true }
-
-[dependencies]
-rustlex_codegen = { version = "*", features = ["with-syntex"] }
-```
-
-You will need to write a `build.rs` file. This file is automatically called by
-`cargo` before the build (according to the `build` variable in the `Cargo.toml`
-file). In our case, it will use syntex to process your code and call RustLex's
-code generation:
-
-```rust
-pub fn main() {
-    extern crate syntex;
-    extern crate rustlex_codegen;
-    use std::env;
-    use std::path::Path;
-
-    let mut registry = syntex::Registry::new();
-    rustlex_codegen::plugin_registrar(&mut registry);
-    let src = Path::new("src/foo.in.rs");
-    let dst = Path::new(&env::var_os("OUT_DIR").unwrap()).join("foo.rs");
-    registry.expand("", &src, &dst).unwrap();
-}
-```
-
-Replace `foo.in.rs` by the name of the file in which you will use RustLex. Note
-that all its submodules are processed with it, so you don't need to add them as
-well even if they also contain calls to the RustLex macro.
-
-This will generate a file called `foo.rs` (or however you named it) in Cargo's
-`OUT_DIR`. To use this file, add something like this somewhere in your project
-(for example in a `foo.rs` file placed alongside `foo.in.rs`):
-
-If you want to build a project using RustLex that can be built using either
-stable or nightly, you can write a portable `Cargo.toml` file using features,
-and use the `#[cfg()]` attribute in your `build.rs` and the rest of your code to
-make it build using both versions. You can check out the [test project] for
-`rustlex_codegen` for an example.
-
-[test project]: (http://github.com/naominitel/RustLex/tree/master/codegen/tests/Cargo.toml/)
-
-#### Defining a lexer
+## Defining a lexer
 
 You can then invoke the `rustlex!` macro anywhere. The macro will expand into a
 single lexer structure and implementation describing the lexical analyser.
@@ -123,13 +64,13 @@ rustlex! SimpleLexer {
 More complex regular expression definition examples can be found in [a more
  complex example](tests/complex.rs). It is worth noting that:
 * characters (standalone or in character class) and strings have to be quoted as
-  in rust or C (simple quote for character, double quote for strings)
+  in Rust or C (simple quote for character, double quote for strings)
 * an expression definition can be "called" by its identifier in another
   expression
 
-#### Using a lexer
+## Using a lexer
 
-The lexer will read characters from a standard rust `Reader` and implement a
+The lexer will read characters from a standard Rust `Reader` and implement a
 `Token` `iterator`.
 
 ```rust
@@ -140,22 +81,22 @@ for tok in lexer {
 }
 ```
 
-#### Advanced lexer features
+## Advanced lexer features
 
-##### Token enumeration
+### Token enumeration
 
 By default, `rustlex!` assumes the existence of a token enumeration named
 `Token` in the same module, but this name can be overriden when needed as is the
 case for the `OtherLexer` from [this example](tests/simple.rs).
 
-##### Conditions
+### Conditions
 
 As in flex, conditions can be defined to have the lexer switch from one mode to
 another.
 
 Check out [this example](tests/condition.rs).
 
-##### Arbitrary lexer properties and methods
+### Arbitrary lexer properties and methods
 
 It is possible to add specific fields to the lexer structure using the
 `property` keyword as shown [there](tests/properties.rs).

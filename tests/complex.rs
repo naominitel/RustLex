@@ -4,8 +4,6 @@
 #[allow(plugin_as_library)]
 extern crate rustlex;
 
-#[macro_use] extern crate log;
-
 use std::io::BufReader;
 
 // The Token type is returned by the lexer function on

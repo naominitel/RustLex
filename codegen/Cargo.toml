@@ -1,31 +1,18 @@
 [package]
 name = "rustlex_codegen"
-version = "0.3.4"
+version = "0.4.0"
 authors = ["Naomi Nitel <naominitel@gmail.com>"]
-description = "Syntex extension for RustLex"
+description = "Syntax extension for RustLex"
 homepage = "https://github.com/naominitel/rustlex"
 repository = "https://github.com/naominitel/rustlex"
 keywords = [ "lexer", "lexical", "analyser", "generator" ]
 license = "MIT"
-build = "build.rs"
 
 [lib]
 name = "rustlex_codegen"
 path = "lib.rs"
 
-[features]
-with-syntex = [ "quasi/with-syntex", "quasi_codegen/with-syntex",
-                "syntex", "syntex_syntax", "syntex_errors" ]
-
-[build-dependencies]
-quasi_codegen = { version = "0.32.0", optional = true }
-syntex        = { version = "0.58.1", optional = true }
-
 [dependencies]
 bit-set = ">= 0.3.0"
 log = "0.3.6"
-rustlex_fsa   = { version = "0.3.4",  path = "../fsa" }
-quasi         = { version = "0.32.0", optional = true }
-syntex        = { version = "0.58.1", optional = true }
-syntex_syntax = { version = "0.58.1", optional = true }
-syntex_errors = { version = "0.58.1", optional = true }
+rustlex_fsa   = { version = "0.4.0",  path = "../fsa" }

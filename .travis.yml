@@ -4,32 +4,10 @@ sudo: false
 
 rust:
   - nightly
-  - beta
-  - stable
 
 script:
   - |
     set -e
-    if [ "$TRAVIS_RUST_VERSION" = "nightly" ]
-    then
-      cd codegen
-      cargo build --verbose --features with-syntex
-      cd tests
-      cargo test --verbose --features with-syntex
-      cd ..
-      cargo clean
-      cargo build --verbose
-      cd tests
-      cargo clean
-      cargo test --verbose --features nightly
-      cd ../..
-      cargo build --verbose
-      cargo test --verbose
-    else
-      cd codegen
-      cargo build --verbose --features with-syntex
-      cd tests
-      cargo test --verbose --features with-syntex
-      cd ..
-    fi
+    cargo build --verbose
+    cargo test --verbose
     set +e

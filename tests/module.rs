@@ -4,8 +4,6 @@
 #[allow(plugin_as_library)]
 extern crate rustlex;
 
-#[macro_use] extern crate log;
-
 mod l {
     use self::Token::TokA;
 

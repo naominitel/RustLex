@@ -54,17 +54,12 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
-    tokens:Ident,
-    ident:Ident,
+    pub tokens:Ident,
+    pub ident:Ident,
     pub auto: dfa::Automaton<regex::Action>,
     pub actions: Vec<P<Expr>>,
-    conditions: Vec<(Name, usize)>,
-    properties: Vec<Prop>
-}
-
-mod codegen {
-#[cfg(feature = "with-syntex")] include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
-#[cfg(not(feature = "with-syntex"))] include!("codegen.in.rs");
+    pub conditions: Vec<(Name, usize)>,
+    pub properties: Vec<Prop>
 }
 
 impl Lexer {
@@ -150,6 +145,6 @@ impl Lexer {
     // code of simulation of the automaton
     pub fn gen_code<'cx>(&self, cx: &'cx mut ExtCtxt, sp: Span) -> Box<MacResult + 'cx> {
         info!("generating code...");
-        codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
+        ::codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
     }
 }
