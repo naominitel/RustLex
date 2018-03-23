@@ -3,20 +3,20 @@
 #[cfg(feature = "with-syntex")] extern crate quasi;
 #[cfg(feature = "with-syntex")] extern crate syntex;
 #[cfg(feature = "with-syntex")] extern crate syntex_syntax as syntax;
+#[cfg(feature = "with-syntex")] extern crate syntex_errors as rustc_errors;
 
 #[cfg(not(feature = "with-syntex"))] extern crate syntax;
 #[cfg(not(feature = "with-syntex"))] extern crate rustc_plugin;
+#[cfg(not(feature = "with-syntex"))] extern crate rustc_errors;
 
 #[macro_use] extern crate log;
 extern crate bit_set;
 extern crate fsa;
 
-#[cfg(not(feature = "with-syntex"))] use syntax::tokenstream::TokenTree;
-#[cfg(feature = "with-syntex")] use syntax::ast::TokenTree;
-
 use syntax::ast::Ident;
 use syntax::codemap::Span;
 use syntax::ext::base::{ExtCtxt, MacResult};
+use syntax::tokenstream::TokenTree;
 
 mod analysis;
 mod lexer;
@@ -30,7 +30,6 @@ pub fn rustlex<'a>(cx: &'a mut ExtCtxt, sp: Span, ident:Ident, args: Vec<TokenTr
         -> Box<MacResult+'a> {
     let mut p = ::syntax::parse::new_parser_from_tts(
         cx.parse_sess,
-        cx.cfg.clone(),
         args
     );
 
@@ -51,7 +50,7 @@ pub fn plugin_registrar(reg: &mut syntex::Registry) {
 #[cfg(not(feature = "with-syntex"))]
 pub fn plugin_registrar(reg: &mut rustc_plugin::Registry) {
     reg.register_syntax_extension(
-        syntax::parse::token::intern("rustlex"),
+        syntax::symbol::Symbol::intern("rustlex"),
         syntax::ext::base::IdentTT(Box::new(rustlex), None, false)
     );
 }

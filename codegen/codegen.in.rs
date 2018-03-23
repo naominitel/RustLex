@@ -4,15 +4,13 @@ use regex;
 use syntax::attr;
 use syntax::ast;
 use syntax::ast::Ident;
-use syntax::codemap::Span;
-use syntax::errors;
+use syntax::codemap::{Span, Spanned};
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::base::MacResult;
 use syntax::ext::build::AstBuilder;
-use syntax::parse::token;
+use syntax::symbol::Symbol;
 use syntax::ptr::P;
 use syntax::util::small_vector::SmallVector;
-
 
 // struct returned by the code generator
 // implements a trait containing method called by libsyntax
@@ -21,7 +19,7 @@ pub struct CodeGenerator<'cx> {
     // we need this to report
     // errors when the macro is
     // not called correctly
-    handler: &'cx errors::Handler,
+    handler: &'cx ::rustc_errors::Handler,
     span: Span,
 
     // items
@@ -50,6 +48,10 @@ impl<'cx> MacResult for CodeGenerator<'cx> {
     }
 }
 
+fn span<T>(sp: Span, t: T) -> Spanned<T> {
+    Spanned { span: sp, node: t }
+}
+
 #[inline(always)]
 pub fn lexer_field(sp: Span, name: ast::Ident, ty: P<ast::Ty>) -> ast::StructField {
     ast::StructField {
@@ -74,8 +76,8 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
 
     fields.push(ast::StructField {
         span: sp,
-        ident: Some(ast::Ident::with_empty_ctxt(token::intern("_input"))),
-        vis:ast::Visibility::Public,
+        ident: Some(ast::Ident::with_empty_ctxt(Symbol::intern("_input"))),
+        vis: ast::Visibility::Public,
         id: ast::DUMMY_NODE_ID,
         ty: quote_ty!(&*cx, ::rustlex::rt::RustLexLexer<R>),
         attrs: vec![]
@@ -83,7 +85,7 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
 
     fields.push(ast::StructField {
         span: sp,
-        ident: Some(ast::Ident::with_empty_ctxt(token::intern("_state"))),
+        ident: Some(ast::Ident::with_empty_ctxt(Symbol::intern("_state"))),
         vis: ast::Visibility::Public,
         id: ast::DUMMY_NODE_ID,
         ty: quote_ty!(&*cx, usize),
@@ -91,10 +93,10 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
     });
 
     let docattr = attr::mk_attr_outer(attr::mk_attr_id(), attr::mk_list_item(
-        token::InternedString::new("allow"),
-        vec![
-            attr::mk_word_item(token::InternedString::new("missing_docs"))
-        ]
+        Symbol::intern("allow"),
+        vec![span(sp, ast::NestedMetaItemKind::MetaItem(
+            attr::mk_word_item(Symbol::intern("missing_docs"))
+        ))]
     ));
 
     P(ast::Item {
@@ -104,25 +106,27 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
         node: ast::ItemKind::Struct(
             ast::VariantData::Struct(fields, ast::DUMMY_NODE_ID),
             ast::Generics {
-                lifetimes: Vec::new(),
-                ty_params: P::from_vec(vec![
-                    cx.typaram(sp, ast::Ident::with_empty_ctxt(token::intern("R")),
-                    P::from_vec(vec![
+                lifetimes: vec![],
+                ty_params: vec![cx.typaram(
+                    sp, ast::Ident::with_empty_ctxt(Symbol::intern("R")), vec![],
+                    vec![
                         cx.typarambound(cx.path_global(sp, vec![
-                            ast::Ident::with_empty_ctxt(token::intern("std")),
-                            ast::Ident::with_empty_ctxt(token::intern("io")),
-                            ast::Ident::with_empty_ctxt(token::intern("Read"))
-                    ]))]),
-                    None)
-                ]),
+                            ast::Ident::with_empty_ctxt(Symbol::intern("std")),
+                            ast::Ident::with_empty_ctxt(Symbol::intern("io")),
+                            ast::Ident::with_empty_ctxt(Symbol::intern("Read"))
+                        ]))
+                    ],
+                    None
+                )],
                 where_clause: ast::WhereClause {
                     id: ast::DUMMY_NODE_ID,
                     predicates: Vec::new(),
-                }
+                },
+                span: sp
             }
         ),
         vis: ast::Visibility::Public,
-        span:sp
+        span: sp
     })
 }
 
@@ -177,7 +181,7 @@ pub fn actions_match(lex:&Lexer, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
 fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     // * transtable: an array of N arrays of 256 uints, N being the number
     //   of states in the FSM, which gives the transitions between states
-    let ty_vec = cx.ty(sp, ast::TyKind::FixedLengthVec(
+    let ty_vec = cx.ty(sp, ast::TyKind::Array(
         cx.ty_ident(sp, cx.ident_of("usize")),
         cx.expr_usize(sp, 256)));
     let mut transtable = Vec::new();
@@ -191,7 +195,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
         transtable.push(trans_expr);
     }
 
-    let ty_transtable = cx.ty(sp, ast::TyKind::FixedLengthVec(
+    let ty_transtable = cx.ty(sp, ast::TyKind::Array(
         ty_vec,
         cx.expr_usize(sp, lex.auto.states.len())
     ));
@@ -216,7 +220,7 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
 fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     // * accepting: an array of N uints, giving the action associated to
     //   each state
-    let ty_acctable = cx.ty(sp, ast::TyKind::FixedLengthVec(
+    let ty_acctable = cx.ty(sp, ast::TyKind::Array(
         cx.ty_ident(sp, cx.ident_of("usize")),
         cx.expr_usize(sp, lex.auto.states.len())
     ));
@@ -253,9 +257,9 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
     }
 
     let initial = lex.auto.initials[lex.conditions[0].1];
-    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_input")),
+    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(Symbol::intern("_input")),
         quote_expr!(&*cx, ::rustlex::rt::RustLexLexer::new(reader))));
-    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(token::intern("_state")),
+    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(Symbol::intern("_state")),
         quote_expr!(&*cx, $initial)));
 
     let init_expr = cx.expr_struct_ident(sp, lex.ident, fields);

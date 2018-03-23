@@ -1,6 +1,6 @@
 [package]
 name = "rustlex_fsa"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Naomi Nitel <naominitel@gmail.com>"]
 description = "Library for manipulating (deterministic) finite automata"
 homepage = "https://github.com/naominitel/rustlex"

@@ -1,6 +1,6 @@
 [package]
 name = "rustlex"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Naomi Nitel <naominitel@gmail.com>", "Mathieu Poumeyrol <kali@zoy.org>"]
 description = "Lexical analysers generator for Rust, written in Rust"
 homepage = "https://github.com/naominitel/rustlex"
@@ -15,4 +15,4 @@ path = "lib.rs"
 plugin = true
 
 [dependencies]
-rustlex_codegen = { version = "0.3.3", path = "codegen" }
+rustlex_codegen = { version = "0.3.4", path = "codegen" }

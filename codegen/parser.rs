@@ -15,10 +15,10 @@ use syntax::ast::Ty;
 use syntax::codemap::Span;
 use syntax::parse;
 use syntax::parse::token;
-use syntax::parse::token::keywords;
+use syntax::symbol::{Symbol, keywords};
 use syntax::parse::parser::Parser;
-use syntax::errors::DiagnosticBuilder;
 use syntax::ptr::P;
+use rustc_errors::DiagnosticBuilder;
 
 
 trait Tokenizer<'a> {
@@ -35,12 +35,12 @@ trait Tokenizer<'a> {
     // consumes the current token and return true if
     // it corresponds to tok, or false otherwise
     fn eat(&mut self, tok: &token::Token) -> bool;
-    fn eat_keyword(&mut self, kwd: token::keywords::Keyword) -> bool;
+    fn eat_keyword(&mut self, kwd: keywords::Keyword) -> bool;
 
     // returns true if the next token is the given
     // token or keyword, without consuming it
     fn check(&mut self, tok: &token::Token) -> bool;
-    fn check_keyword(&mut self, kwd: token::keywords::Keyword) -> bool;
+    fn check_keyword(&mut self, kwd: keywords::Keyword) -> bool;
 
     // expects the following token to be the
     // same as the given token, then consumes it
@@ -62,25 +62,27 @@ impl<'a> Tokenizer<'a> for Parser<'a> {
     fn token(&self) -> &token::Token { &self.token }
     fn bump(&mut self) { self.bump() }
     fn bump_and_get(&mut self) -> token::Token {
-        self.bump_and_get()
+        let token = ::std::mem::replace(&mut self.token, token::Token::Whitespace);
+        self.bump();
+        token
     }
     fn eat(&mut self, tok: &token::Token) -> bool {
         self.eat(tok)
     }
-    fn eat_keyword(&mut self, kwd: token::keywords::Keyword) -> bool {
+    fn eat_keyword(&mut self, kwd: keywords::Keyword) -> bool {
         self.eat_keyword(kwd)
     }
     fn check(&mut self, tok: &token::Token) -> bool {
         self.check(tok)
     }
-    fn check_keyword(&mut self, kwd: token::keywords::Keyword) -> bool {
+    fn check_keyword(&mut self, kwd: keywords::Keyword) -> bool {
         self.check_keyword(kwd)
     }
     fn expect(&mut self, tok: &token::Token) -> Result<(),DiagnosticBuilder<'a>> {
         self.expect(tok)
     }
     fn parse_ident(&mut self) -> Result<Ident, DiagnosticBuilder<'a>> { self.parse_ident() }
-    fn last_span(&self) -> Span { self.last_span }
+    fn last_span(&self) -> Span { self.prev_span }
     fn span_fatal(&mut self, sp: Span, m: &str) -> DiagnosticBuilder<'a> {
         Parser::span_fatal(self, sp, m)
     }
@@ -94,7 +96,7 @@ impl<'a> Tokenizer<'a> for Parser<'a> {
 type Env = HashMap<Name, usize>;
 
 fn get_tokens<'a>(parser: &mut Parser<'a>) -> Result<Ident,DiagnosticBuilder<'a>> {
-    let token = token::intern("token");
+    let token = Symbol::intern("token");
     match parser.token {
         token::Ident(id) if id.name == token => {
             parser.bump();
@@ -102,14 +104,14 @@ fn get_tokens<'a>(parser: &mut Parser<'a>) -> Result<Ident,DiagnosticBuilder<'a>
             try!(parser.expect(&token::Semi));
             Ok(token)
         }
-        _ => Ok(Ident::with_empty_ctxt(token::intern("Token")))
+        _ => Ok(Ident::with_empty_ctxt(Symbol::intern("Token")))
     }
 }
 
 fn get_properties<'a>(parser: &mut Parser<'a>)
         -> Result<Vec<(Name, P<Ty>, P<Expr>)>,DiagnosticBuilder<'a>> {
     let mut ret = Vec::new();
-    let prop = token::intern("property");
+    let prop = Symbol::intern("property");
     loop {
         match parser.token {
             token::Ident(id) if id.name == prop => {
@@ -264,7 +266,7 @@ fn get_concat<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &En
     -> Result<Regex,DiagnosticBuilder<'a>> {
     let opl = try!(get_closure(parser, env));
     if parser.check(end) ||
-        parser.check_keyword(token::keywords::As) ||
+        parser.check_keyword(keywords::As) ||
         parser.check(&token::BinOp(token::Or)) {
         Ok(opl)
     } else {
@@ -277,7 +279,7 @@ fn get_concat<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &En
 fn get_binding<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &Env)
         -> Result<Regex, DiagnosticBuilder<'a>> {
     let expr = try!(get_concat(parser, end, env));
-    if parser.eat_keyword(token::keywords::As) {
+    if parser.eat_keyword(keywords::As) {
         let name = try!(parser.parse_ident());
         Ok(Box::new(regex::Bind(name, expr)))
     } else { Ok(expr) }
@@ -361,7 +363,7 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
     let mut cond_names: HashMap<Name, usize> = HashMap::new();
     let mut ret = Vec::new();
     let initial = Condition {
-        name: token::intern("INITIAL"),
+        name: Symbol::intern("INITIAL"),
         span: parser.span,
         rules: Vec::new()
     };
