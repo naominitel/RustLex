@@ -1,5 +1,7 @@
 ### RustLex: lexical analysers generator for Rust
 
+[0.4.0]: https://crates.io/crates/rustlex/0.4.0
+
 [![Build Status](https://travis-ci.org/naominitel/rustlex.svg)](https://travis-ci.org/naominitel/rustlex)
 
 RustLex is a lexical analysers generator, i.e. a program that generate [lexical
@@ -14,10 +16,10 @@ Rust source file, and the generator code will be called by Rustc at the
 
 #### Rustlex availability and rust compatibility
 
-Rustlex using syntax extensions, it has to deal with rustc `libsyntax`.
+RustLex using syntax extensions, it has to deal with rustc `libsyntax`.
 `libsyntax` is more or less the compiler guts, and it has been explicitely
 excluded from the Rust 1.0 roadmap. Bottom line is, RustLex inline syntax
-generation will not be usable with Rust 1.0.
+generation is not usable with Rust stable.
 
 The way of using RustLex depends on the version of Rust you are using to build
 your project.
@@ -39,9 +41,10 @@ is needed to generate the code.
 
 #### Stable
 
-On the stable channel, you have to use [syntex]
-(https://github.com/erickt/rust-syntex) to first perform code generation and then
- `include!()` the produced code into your project.
+On the stable channel, you have to use [syntex] to first perform code generation
+and then `include!()` the produced code into your project.
+
+[syntex]: https://github.com/erickt/rust-syntex
 
 Your `Cargo.toml` should look like that:
 
@@ -90,9 +93,10 @@ This will generate a file called `foo.rs` (or however you named it) in Cargo's
 If you want to build a project using RustLex that can be built using either
 stable or nightly, you can write a portable `Cargo.toml` file using features,
 and use the `#[cfg()]` attribute in your `build.rs` and the rest of your code to
-make it build using both versions. You can check out the [test project]
-(http://github.com/naominitel/RustLex/tree/master/codegen/tests/Cargo.toml/) for
+make it build using both versions. You can check out the [test project] for
 `rustlex_codegen` for an example.
+
+[test project]: (http://github.com/naominitel/RustLex/tree/master/codegen/tests/Cargo.toml/)
 
 #### Defining a lexer
 
