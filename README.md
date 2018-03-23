@@ -1,5 +1,14 @@
 ### RustLex: lexical analysers generator for Rust
 
+*Warning: This version of RustLex works only for the stable channel of Rust
+with the latest version of syntex (see the ‶Stable″ section below).*
+
+*Note that syntex is no longer actively maintained and, while this version is
+provided for compatibility, its use is discouraged.*
+
+*If you want to use RustLex with the nightly channel of Rust instead, use version
+[0.4.0] instead.*
+
 [0.4.0]: https://crates.io/crates/rustlex/0.4.0
 
 [![Build Status](https://travis-ci.org/naominitel/rustlex.svg)](https://travis-ci.org/naominitel/rustlex)

@@ -1,4 +1,3 @@
-#[cfg(feature = "with-syntex")]
 pub fn main() {
     extern crate syntex;
     extern crate rustlex_codegen;
@@ -11,6 +10,3 @@ pub fn main() {
     let dst = Path::new(&env::var_os("OUT_DIR").unwrap()).join("test.rs");
     registry.expand("", &src, &dst).unwrap();
 }
-
-#[cfg(not(feature = "with-syntex"))]
-pub fn main() {}

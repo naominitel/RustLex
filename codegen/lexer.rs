@@ -63,8 +63,7 @@ pub struct Lexer {
 }
 
 mod codegen {
-#[cfg(feature = "with-syntex")] include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
-#[cfg(not(feature = "with-syntex"))] include!("codegen.in.rs");
+    include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 }
 
 impl Lexer {
