@@ -2,15 +2,9 @@ use analysis;
 use fsa::dfa;
 use regex;
 use unicode;
-use syntax::ast::Expr;
-use syntax::ast::Ident;
-use syntax::ast::Name;
-use syntax::ast::Ty;
-use syntax::codemap::Span;
-use syntax::ext::base::ExtCtxt;
-use syntax::ext::base::MacResult;
-use syntax::ext::build::AstBuilder;
-use syntax::ptr::P;
+use proc_macro::Diagnostic;
+use proc_macro2::{Span, Term, TokenTree};
+use quote;
 
 // a rule is a regular expression pattern associated
 // to a Rust code snippet
@@ -18,7 +12,7 @@ use syntax::ptr::P;
 // this is what libsyntax gives usn
 pub struct Rule {
     pub pattern: regex::Regex,
-    pub action: P<Expr>
+    pub action: TokenTree
 }
 
 // a condition is a "state" of the lexical analyser
@@ -26,23 +20,24 @@ pub struct Rule {
 // conditions. Each condition have an automaton for its own
 // set of rules
 pub struct Condition {
-    pub name: Name,
+    pub name: Term,
     pub rules: Vec<Rule>,
     pub span: Span
 }
 
-pub type Prop = (Name, P<Ty>, P<Expr>);
+pub type Prop = (Term, TokenTree, TokenTree);
+
 // the definition of a lexical analyser is just
 // all of the conditions
 pub struct LexerDef {
-    pub tokens:     Ident,
-    pub ident:      Ident,
-    pub defs:       Vec<regex::Regex>,
+    pub tokens: Term,
+    pub ident: Term,
+    pub defs: Vec<regex::Regex>,
     pub properties: Vec<Prop>,
     pub conditions: Vec<Condition>
 }
 
-// The RustLex representation of a lexical analyser
+// the RustLex representation of a lexical analyser
 // * auto is an automata made of several Deterministic Finite Automata.
 //   They each correspond to a single "condition" of the lexical analyser
 //   but are stored in a single automata and thus have a single "state
@@ -54,22 +49,21 @@ pub struct LexerDef {
 //   along the number of the initial state of the DFA that corresponds to
 //   this condition in auto.
 pub struct Lexer {
-    pub tokens:Ident,
-    pub ident:Ident,
+    pub tokens: Term,
+    pub ident: Term,
     pub auto: dfa::Automaton<regex::Action>,
-    pub actions: Vec<P<Expr>>,
-    pub conditions: Vec<(Name, usize)>,
+    pub actions: Vec<quote::Tokens>,
+    pub conditions: Vec<(Term, usize)>,
     pub properties: Vec<Prop>
 }
 
 impl Lexer {
-    // Main function of RustLex, compiles a set of rules into a
+    // Main function of RustLex, compiles a set of rules into aName
     // lexical analyser
-    pub fn new(def: LexerDef, cx: &ExtCtxt) -> Lexer {
+    pub fn new(def: LexerDef) -> Result<Lexer, ()> {
         // all the actions in the lexical analyser
         // 0 is a dummy action that represent no action
-        let dummy_expr = cx.expr_unreachable(cx.call_site());
-        let mut acts = vec!(dummy_expr);
+        let mut acts = vec!(quote!{ unreachable!() });
         let mut id = 1usize;
 
         // now build the automatas and record
@@ -84,7 +78,7 @@ impl Lexer {
 
             for &Rule { ref pattern, ref action } in cond.rules.iter() {
                 asts.push((pattern.clone(), regex::Action(id)));
-                acts.push(action.clone());
+                acts.push(quote!{ action });
                 id += 1;
             }
 
@@ -98,12 +92,18 @@ impl Lexer {
             conds.push((name, dfas.determinize(&nfa)));
         }
 
+        // analysis
+        let error = false;
+
         for &s in dfas.initials.iter() {
             let regex::Action(act) = dfas.states[s].data;
             if act != 0 {
-                cx.struct_span_err(acts[act].span, "this rule accepts the empty word")
-                  .help("this might cause the automaton to loop on some inputs")
-                  .emit();
+                Diagnostic::span_err(acts[act].span,
+                                     "this rule accepts the empty word")
+                    .help("this might cause the automaton \
+                           to loop on some inputs")
+                    .emit();
+                error = true;
             }
         }
 
@@ -112,39 +112,43 @@ impl Lexer {
             analysis::check_automaton(&dfas, acts.len());
 
         for regex::Action(act) in unreachable.into_iter() {
-            cx.struct_span_err(acts[act].span, "unreachable pattern")
-              .help("make sure it is not included in another pattern ; latter patterns have precedence")
-              .emit();
+            Diagnostic::span_err(acts[act].span, "unreachable pattern")
+                .help("make sure it is not included in another pattern ; \
+                       latter patterns have precedence")
+                .emit();
+            error = true;
         }
 
         for cond in incomplete.into_iter() {
-            cx.struct_span_err(def.conditions[cond].span, "this automaton is incomplete")
+            Diagnostic::span_err(def.conditions[cond].span,
+                                 "this automaton is incomplete")
               .help("maybe add a catch-all rule?")
               .emit();
+            error = true;
         }
 
-        cx.parse_sess.span_diagnostic.abort_if_errors();
+        if error { return Err(()) }
 
         info!("minimizing...");
-        Lexer {
+        Ok(Lexer {
             tokens: def.tokens,
             ident: def.ident,
             auto: dfas.minimize(),
-            actions: acts,
+            actions: acts.into(),
             conditions: conds,
             properties: def.properties.clone()
-        }
+        })
     }
 
-    // the generated code model consists of several Rust "items", i.e.
-    // declarations that are not statements
-    // - declaration of the transition table and accepting table
-    // - declaration of the condition names and a few macros to
-    //   make the writing of actions easier
-    // - the Lexer struct and its impl block that implements the actual
-    // code of simulation of the automaton
-    pub fn gen_code<'cx>(&self, cx: &'cx mut ExtCtxt, sp: Span) -> Box<MacResult + 'cx> {
-        info!("generating code...");
-        ::codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
-    }
+//     // the generated code model consists of several Rust "items", i.e.
+//     // declarations that are not statements
+//     // - declaration of the transition table and accepting table
+//     // - declaration of the condition names and a few macros to
+//     //   make the writing of actions easier
+//     // - the Lexer struct and its impl block that implements the actual
+//     // code of simulation of the automaton
+//     // pub fn gen_code<'cx>(&self, cx: &'cx mut ExtCtxt, sp: Span) -> Box<MacResult + 'cx> {
+//     //     info!("generating code...");
+//     //     ::codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
+//     // }
 }

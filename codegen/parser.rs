@@ -3,126 +3,83 @@
 // uses libsyntax to parse what Rustc gives us
 
 use std::collections::hash_map::HashMap;
-use lexer::Condition;
-use lexer::LexerDef;
-use lexer::Rule;
+use std::iter::{self, FromIterator};
+use proc_macro2::{TokenNode, TokenStream, TokenTree, TokenTreeIter};
+use proc_macro2::{Delimiter, Spacing, Span, Term};
+use proc_macro::{Diagnostic};
+use lexer::{Condition, LexerDef, Rule};
 use regex;
 use regex::Regex;
-use syntax::ast::Expr;
-use syntax::ast::Ident;
-use syntax::ast::Name;
-use syntax::ast::Ty;
-use syntax::codemap::Span;
-use syntax::parse;
-use syntax::parse::token;
-use syntax::symbol::{Symbol, keywords};
-use syntax::parse::parser::Parser;
-use syntax::ptr::P;
-use rustc_errors::DiagnosticBuilder;
 
+pub type PResult<T> = Result<T, Diagnostic>;
 
-trait Tokenizer<'a> {
-    // returns the current token, without consuming it
-    fn token(&self) -> &token::Token;
+trait Tokenizer {
+    // // returns the current token, without consuming it
+    // fn token(&self) -> &token::Token;
 
     // consumes the current token
     fn bump(&mut self) -> ();
 
     // consumes the current token and return it
     // equivalent to token() followed by bump()
-    fn bump_and_get(&mut self) -> token::Token;
+    fn bump_and_get(&mut self) -> TokenNode;
 
     // consumes the current token and return true if
-    // it corresponds to tok, or false otherwise
-    fn eat(&mut self, tok: &token::Token) -> bool;
-    fn eat_keyword(&mut self, kwd: keywords::Keyword) -> bool;
+    // it corresponds to the given tok, or false otherwise
+    fn eat_op(&mut self, op: char, spc: Spacing) -> bool;
+    fn eat_keyword(&mut self, kwd: &str) -> bool;
 
     // returns true if the next token is the given
     // token or keyword, without consuming it
-    fn check(&mut self, tok: &token::Token) -> bool;
-    fn check_keyword(&mut self, kwd: keywords::Keyword) -> bool;
+    fn check_op(&mut self, op: char, spc: Spacing) -> bool;
+    fn check_keyword(&mut self, kwd: &str) -> bool;
 
-    // expects the following token to be the
-    // same as the given token, then consumes it
-    fn expect(&mut self, tok: &token::Token) -> Result<(),DiagnosticBuilder<'a>>;
+    // expects the following token to be the given operator,
+    // followed by spacing or not, then consumes it
+    fn expect_op(&mut self, op: char, spc: Spacing) -> PResult<()>;
 
     // expect the next token to be an ident and consumes it
-    fn parse_ident(&mut self) -> Result<Ident, DiagnosticBuilder<'a>>;
+    fn parse_ident(&mut self) -> PResult<Term>;
 
-    // returns the span of the previous token
+    // // returns the span of the previous token
     fn last_span(&self) -> Span;
 
     // various functions to abort parsing
-    fn span_fatal(&mut self, sp: Span, m: &str) -> DiagnosticBuilder<'a>;
-    fn unexpected(&mut self) -> DiagnosticBuilder<'a>;
-    fn unexpected_last(&mut self, tok: &token::Token) -> DiagnosticBuilder<'a>;
+    fn span_error(&self, m: &str) -> Diagnostic;
+    fn unexpected(&self) -> Diagnostic;
+
+    fn unexpected_last(&mut self) -> Diagnostic;
 }
 
-impl<'a> Tokenizer<'a> for Parser<'a> {
-    fn token(&self) -> &token::Token { &self.token }
-    fn bump(&mut self) { self.bump() }
-    fn bump_and_get(&mut self) -> token::Token {
-        let token = ::std::mem::replace(&mut self.token, token::Token::Whitespace);
-        self.bump();
-        token
-    }
-    fn eat(&mut self, tok: &token::Token) -> bool {
-        self.eat(tok)
-    }
-    fn eat_keyword(&mut self, kwd: keywords::Keyword) -> bool {
-        self.eat_keyword(kwd)
-    }
-    fn check(&mut self, tok: &token::Token) -> bool {
-        self.check(tok)
-    }
-    fn check_keyword(&mut self, kwd: keywords::Keyword) -> bool {
-        self.check_keyword(kwd)
-    }
-    fn expect(&mut self, tok: &token::Token) -> Result<(),DiagnosticBuilder<'a>> {
-        self.expect(tok)
-    }
-    fn parse_ident(&mut self) -> Result<Ident, DiagnosticBuilder<'a>> { self.parse_ident() }
-    fn last_span(&self) -> Span { self.prev_span }
-    fn span_fatal(&mut self, sp: Span, m: &str) -> DiagnosticBuilder<'a> {
-        Parser::span_fatal(self, sp, m)
-    }
-    fn unexpected(&mut self) -> DiagnosticBuilder<'a> { Parser::unexpected::<()>(self).unwrap_err() }
-    fn unexpected_last(&mut self, tok: &token::Token) -> DiagnosticBuilder<'a> {
-        Parser::unexpected_last::<()>(self, tok).unwrap_err()
-    }
-}
+// // the "lexical" environment of regular expression definitions
+type Env = HashMap<String, usize>;
 
-// the "lexical" environment of regular expression definitions
-type Env = HashMap<Name, usize>;
-
-fn get_tokens<'a>(parser: &mut Parser<'a>) -> Result<Ident,DiagnosticBuilder<'a>> {
-    let token = Symbol::intern("token");
-    match parser.token {
-        token::Ident(id) if id.name == token => {
+fn get_tokens(parser: &mut Parser) -> PResult<Term> {
+    match parser.node {
+        TokenNode::Term(t) if t.as_str() == "token" => {
             parser.bump();
             let token = try!(parser.parse_ident());
-            try!(parser.expect(&token::Semi));
+            try!(parser.expect_op(';', Spacing::Alone));
             Ok(token)
         }
-        _ => Ok(Ident::with_empty_ctxt(Symbol::intern("Token")))
+        _ => Ok(Term::intern("Token"))
     }
 }
 
-fn get_properties<'a>(parser: &mut Parser<'a>)
-        -> Result<Vec<(Name, P<Ty>, P<Expr>)>,DiagnosticBuilder<'a>> {
+fn get_properties(parser: &mut Parser)
+        -> PResult<Vec<(Term, TokenTree, TokenTree)>> {
     let mut ret = Vec::new();
-    let prop = Symbol::intern("property");
     loop {
-        match parser.token {
-            token::Ident(id) if id.name == prop => {
+        match parser.node {
+            TokenNode::Term(t) if t.as_str() == "property" => {
                 parser.bump();
                 let name = try!(parser.parse_ident());
-                try!(parser.expect(&token::Colon));
+                try!(parser.expect_op(':', Spacing::Alone));
                 let ty = try!(parser.parse_ty());
-                try!(parser.expect(&token::Eq));
+                try!(parser.expect_op('=', Spacing::Alone));
                 let expr = try!(parser.parse_expr());
-                try!(parser.expect(&token::Semi));
-                ret.push((name.name, ty, expr));
+                try!(parser.expect_op(';', Spacing::Alone));
+                ret.push((name, ty, expr));
             }
 
             _ => break
@@ -132,58 +89,57 @@ fn get_properties<'a>(parser: &mut Parser<'a>)
     Ok(ret)
 }
 
-// the functions below migth read their tokens either from the libsyntax
-// parser type or from our tokenizer that reads tokens from a raw string,
-// hence the type parameter
+// // the functions below migth read their tokens either from the libsyntax
+// // parser type or from our tokenizer that reads tokens from a raw string,
+// // hence the type parameter
 
 // recursively parses a character class, e.g. ['a'-'z''0'-'9''_']
 // basically creates an or-expression per character in the class
-fn get_char_class<'a, T: Tokenizer<'a>>(parser: &mut T)
-        -> Result<regex::CharSet<char>, DiagnosticBuilder<'a>> {
+fn get_char_class<T: Tokenizer>(parser: &mut T)
+                                -> PResult<regex::CharSet<char>> {
     let mut ret = regex::CharSet::new();
     loop {
         let tok = parser.bump_and_get();
         match tok {
-            token::CloseDelim(token::Bracket) => {
-                break
-            }
+            // eof
+            TokenNode::Op(' ', Spacing::Joint) => break,
 
-            token::Literal(token::Lit::Char(i), _) => {
-                let ch = parse::char_lit(&*i.as_str(), None).0;
+            // TokenNode::Literal(token::Lit::Char(i), _) => {
+            //     let ch = parse::char_lit(&*i.as_str(), None).0;
 
-                match *parser.token() {
-                    token::BinOp(token::Minus) => {
-                        // a char seq, e.g. 'a' - 'Z'
-                        parser.bump();
-                        let ch2 = match parser.bump_and_get() {
-                            token::Literal(token::Lit::Char(ch), _) =>
-                                parse::char_lit(&*ch.as_str(), None).0,
-                            _ => return Err(parser.unexpected())
-                        };
-                        if ch >= ch2 {
-                            let last_span = parser.last_span();
-                            return Err(parser.span_fatal(last_span,
-                                "invalid character range"))
-                        }
-                        ret.push(ch .. ch2);
-                    }
+            //     match *parser.token() {
+            //         token::BinOp(token::Minus) => {
+            //             // a char seq, e.g. 'a' - 'Z'
+            //             parser.bump();
+            //             let ch2 = match parser.bump_and_get() {
+            //                 token::Literal(token::Lit::Char(ch), _) =>
+            //                     parse::char_lit(&*ch.as_str(), None).0,
+            //                 _ => return Err(parser.unexpected())
+            //             };
+            //             if ch >= ch2 {
+            //                 let last_span = parser.last_span();
+            //                 return Err(parser.span_fatal(last_span,
+            //                     "invalid character range"))
+            //             }
+            //             ret.push(ch .. ch2);
+            //         }
 
-                    _ => { ret.push(ch .. ch); }
-                }
-            }
+            //         _ => { ret.push(ch .. ch); }
+            //     }
+            // }
 
-            token::Literal(token::Lit::Str_(id),_) => {
-                if id.as_str().len() == 0 {
-                    let last_span = parser.last_span();
-                    return Err(parser.span_fatal(last_span,
-                        "bad string constant in character class"))
-                }
-                for b in id.as_str().chars() {
-                    ret.push(b .. b);
-                }
-            }
+            // token::Literal(token::Lit::Str_(id),_) => {
+            //     if id.as_str().len() == 0 {
+            //         let last_span = parser.last_span();
+            //         return Err(parser.span_fatal(last_span,
+            //             "bad string constant in character class"))
+            //     }
+            //     for b in id.as_str().chars() {
+            //         ret.push(b .. b);
+            //     }
+            // }
 
-            _ => return Err(parser.unexpected_last(&tok))
+            _ => return Err(parser.unexpected_last())
         }
     }
     Ok(ret)
@@ -195,63 +151,71 @@ fn get_char_class<'a, T: Tokenizer<'a>>(parser: &mut T)
 // - an identifier refering to another expression
 // parenthesized subexpressions are also parsed here since the have
 // the same operator precedence as the constants
-fn get_const<'a, T: Tokenizer<'a>>(parser: &mut T, env: &Env)
-        -> Result<Regex,DiagnosticBuilder<'a>> {
+fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> PResult<Regex> {
     let tok = parser.bump_and_get();
     // here we expect either
     // the start of a character-class, '['
     // the start of a parenthesized expression, '('
     // a literal char constant, 'a'
     match tok {
-        token::Dot => Ok(Box::new(regex::Literal(regex::Any))),
-        token::OpenDelim(token::Paren) => get_regex(parser,
-            &token::CloseDelim(token::Paren), env),
-        token::OpenDelim(token::Bracket) => {
-            if parser.eat(&token::BinOp(token::Caret)) {
+        TokenNode::Op('.', _) => Ok(Box::new(regex::Literal(regex::Any))),
+        TokenNode::Group(Delimiter::Parenthesis, toks) => {
+            let mut sub = Parser::new(toks);
+            get_regex(&mut sub, ' ', Spacing::Joint, env)
+        }
+        TokenNode::Group(Delimiter::Bracket, toks) => {
+            let mut sub = Parser::new(toks);
+            if parser.eat_op('^', Spacing::Alone) {
                 Ok(Box::new(regex::Literal(
-                    regex::NotClass(try!(get_char_class(parser)))
+                    regex::NotClass(try!(get_char_class(&mut sub)))
                 )))
             } else {
                 Ok(Box::new(regex::Literal(
-                    regex::Class(try!(get_char_class(parser)))
+                    regex::Class(try!(get_char_class(&mut sub)))
                 )))
             }
         }
-        token::Literal(token::Lit::Char(ch), _) =>
-            Ok(Box::new(regex::Literal(
-                regex::Char(parse::char_lit(&*ch.as_str(), None).0)
-            ))),
-        token::Literal(token::Lit::Str_(id), _) =>
-            match regex::string(&*id.as_str()) {
-                Some(reg) => Ok(reg),
-                None => {
-                    let last_span = parser.last_span();
-                    Err(parser.span_fatal(last_span,
-                        "bad string constant in regular expression"))
-                }
-            },
-        token::Ident(id) => match env.get(&id.name).cloned() {
+        // FIXME
+        // TokenNode::Literal(token::Lit::Char(ch), _) =>
+        //     Ok(Box::new(regex::Literal(
+        //         regex::Char(parse::char_lit(&*ch.as_str(), None).0)
+        //     ))),
+        // TokenNode::Literal(token::Lit::Str_(id), _) =>
+        //     match regex::string(&*id.as_str()) {
+        //         Some(reg) => Ok(reg),
+        //         None => {
+        //             let last_span = parser.last_span();
+        //             Err(parser.span_fatal(last_span,
+        //                 "bad string constant in regular expression"))
+        //         }
+        //     },
+        TokenNode::Term(id) => match env.get(id.as_str()).cloned() {
             Some(value) => Ok(Box::new(regex::Var(value))),
             None => {
                 let last_span = parser.last_span();
-                Err(parser.span_fatal(last_span,
-                &format!("unknown identifier: {}", id.name.as_str())))
+                Err(Diagnostic::spanned(
+                    ::proc_macro::Span::(parser.last_span()),
+                    ::proc_macro::Level::Error,
+                    format!("unknown identifier: {}", id.as_str())
+                ))
             }
         },
-        _ => Err(parser.unexpected_last(&tok))
+        _ => Err(parser.unexpected_last())
     }
 }
 
 // a "closure" in a regular expression, i.e. expr*
 // the * operator has lower precedence that concatenation
-fn get_closure<'a, T: Tokenizer<'a>>(parser: &mut T, env: &Env)
-        -> Result<Regex,DiagnosticBuilder<'a>> {
+fn get_closure<T: Tokenizer>(parser: &mut T, env: &Env) -> PResult<Regex> {
     let reg = try!(get_const(parser, env));
-    if parser.eat(&token::BinOp(token::Star)) {
+    if parser.eat_op('*', Spacing::Alone) ||
+        parser.eat_op('*', Spacing::Joint) {
         Ok(Box::new(regex::Closure(reg)))
-    } else if parser.eat(&token::BinOp(token::Plus)) {
+    } else if parser.eat_op('+', Spacing::Alone) ||
+        parser.eat_op('+', Spacing::Joint) {
         Ok(Box::new(regex::Cat(reg.clone(), Box::new(regex::Closure(reg)))))
-    } else if parser.eat(&token::Question) {
+    } else if parser.eat_op('?', Spacing::Alone) ||
+        parser.eat_op('?', Spacing::Joint) {
         Ok(Box::new(regex::Maybe(reg))) }
     else {
         Ok(reg)
@@ -262,24 +226,24 @@ fn get_closure<'a, T: Tokenizer<'a>>(parser: &mut T, env: &Env)
 // continues until it reaches the end of the current subexpr,
 // indicated by the end parameter or an or operator, which has
 // higher precedence. Concatenation is left-assoc
-fn get_concat<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &Env)
-    -> Result<Regex,DiagnosticBuilder<'a>> {
+fn get_concat<T: Tokenizer>(parser: &mut T, end: char, spc: Spacing, env: &Env)
+                            -> PResult<Regex> {
     let opl = try!(get_closure(parser, env));
-    if parser.check(end) ||
-        parser.check_keyword(keywords::As) ||
-        parser.check(&token::BinOp(token::Or)) {
+    if parser.check_op(end, spc) ||
+        parser.check_keyword("as") ||
+        parser.check_op('|', Spacing::Alone) {
         Ok(opl)
     } else {
-        let opr = try!(get_concat(parser, end, env));
+        let opr = try!(get_concat(parser, end, spc, env));
         Ok(Box::new(regex::Cat(opl, opr)))
     }
 }
 
 // parse a binding of a regexp to an identifier, i.e. expr as id
-fn get_binding<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &Env)
-        -> Result<Regex, DiagnosticBuilder<'a>> {
-    let expr = try!(get_concat(parser, end, env));
-    if parser.eat_keyword(keywords::As) {
+fn get_binding<T: Tokenizer>(parser: &mut T, end: char, spc: Spacing, env: &Env)
+                             -> PResult<Regex> {
+    let expr = try!(get_concat(parser, end, spc, env));
+    if parser.eat_keyword("as") {
         let name = try!(parser.parse_ident());
         Ok(Box::new(regex::Bind(name, expr)))
     } else { Ok(expr) }
@@ -290,17 +254,17 @@ fn get_binding<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &E
 // if we are not at the end of the current subexpression as indicated by
 // the end parameter, we try to read a | operator followed by another
 // expression which is parsed recursively (or is left-assoc)
-fn get_regex<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &Env)
-    -> Result<Regex,DiagnosticBuilder<'a>> {
-    if parser.eat(end) {
+fn get_regex<T: Tokenizer>(parser: &mut T, end: char, spc: Spacing, env: &Env)
+                           -> PResult<Regex> {
+    if parser.eat_op(end, spc) {
         return Err(parser.unexpected());
     }
-    let left = try!(get_binding(parser, end, env));
-    if parser.eat(end) {
+    let left = try!(get_binding(parser, end, spc, env));
+    if parser.eat_op(end, spc) {
         Ok(left)
     } else {
-        try!(parser.expect(&token::BinOp(token::Or)));
-        let right = try!(get_regex(parser, end, env));
+        try!(parser.expect_op('|', Spacing::Alone));
+        let right = try!(get_regex(parser, end, spc, env));
         Ok(Box::new(regex::Or(left, right)))
     }
 }
@@ -308,11 +272,10 @@ fn get_regex<'a, T: Tokenizer<'a>>(parser: &mut T, end: &token::Token, env: &Env
 // a pattern is an association of a name to a regular expression
 // this function expects the next tokens to be id = reg, with id
 // being a non-keyword identifier and reg a literal constant
-fn get_pattern<'a>(parser: &mut Parser<'a>, env: &Env)
-        -> Result<(Ident, Regex),DiagnosticBuilder<'a>> {
+fn get_pattern(parser: &mut Parser, env: &Env) -> PResult<(Term, Regex)> {
     let name = try!(parser.parse_ident());
-    try!(parser.expect(&token::Eq));
-    let reg = try!(get_regex(parser, &token::Semi, env));
+    try!(parser.expect_op('=', Spacing::Alone));
+    let reg = try!(get_regex(parser, ';', Spacing::Alone, env));
     Ok((name, reg))
 }
 
@@ -322,13 +285,13 @@ fn get_pattern<'a>(parser: &mut Parser<'a>, env: &Env)
 // does not match. returns an error if it encounters a malformed
 // definition, otherwise return the "environment" containing named
 // regular expression definitions
-fn get_definitions<'a>(parser: &mut Parser<'a>)
-        -> Result<(Env, Vec<Regex>), DiagnosticBuilder<'a>> {
+fn get_definitions(parser: &mut Parser)
+        -> PResult<(Env, Vec<Regex>)> {
     let mut env = HashMap::new();
     let mut defs = Vec::new();
-    while parser.eat_keyword(keywords::Let) {
+    while parser.eat_keyword("let") {
         let (id, pat) = try!(get_pattern(parser, &env));
-        env.insert(id.name, defs.len());
+        env.insert(id.as_str().to_string(), defs.len());
         defs.push(pat);
     }
     Ok((env, defs))
@@ -338,14 +301,16 @@ fn get_definitions<'a>(parser: &mut Parser<'a>)
 // list of rules of the form regex => action
 // stops as soon as we encounter a closing brace } which
 // indicates the end of the condition body
-fn get_condition<'a>(parser: &mut Parser<'a>, env: &Env)
-        -> Result<Vec<Rule>,DiagnosticBuilder<'a>> {
+fn get_condition(parser: &mut Parser, env: &Env) -> PResult<Vec<Rule>> {
     let mut ret = Vec::new();
-    while !parser.eat(&token::CloseDelim(token::Brace)) {
-        let pattern = try!(get_regex(parser, &token::FatArrow, env));
+    loop {
+        // eof?
+        if let TokenNode::Op(' ', Spacing::Joint) = parser.node { break };
+        let pattern = try!(get_regex(parser, '=', Spacing::Joint, env));
+        try!(parser.expect_op('>', Spacing::Alone));
         let action = try!(parser.parse_expr());
         // optionnal comma for disambiguation
-        parser.eat(&token::Comma);
+        parser.eat_op(',', Spacing::Alone);
         ret.push(Rule { pattern:pattern, action:action });
     }
     Ok(ret)
@@ -355,35 +320,39 @@ fn get_condition<'a>(parser: &mut Parser<'a>, env: &Env)
 // entries here may be either rules of the gorm regex => action
 // or "conditions" of the form condition { ... } that contains rules
 // rules outside conditions implicitely belong to the "INITIAL" condition
-fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
-        -> Result<Vec<Condition>,DiagnosticBuilder<'a>> {
+fn get_conditions(parser: &mut Parser, env: &Env) -> PResult<Vec<Condition>> {
     // remember the names of the conditions we already
     // encountered and where we stored their rules in
     // the conditions array
-    let mut cond_names: HashMap<Name, usize> = HashMap::new();
+    let mut cond_names: HashMap<String, usize> = HashMap::new();
     let mut ret = Vec::new();
     let initial = Condition {
-        name: Symbol::intern("INITIAL"),
+        name: Term::intern("INITIAL"),
         span: parser.span,
         rules: Vec::new()
     };
 
-    cond_names.insert(initial.name, 0);
+    cond_names.insert(initial.name.as_str().to_string(), 0);
     ret.push(initial);
 
-    while parser.token != token::Eof {
-        // here we can expect either a condition declaration
-        // or simply a rule, which is then implicitly in the
-        // "Initial" condition
-        // in any case, we expect an ident or a regex first
-        match parser.token {
-            token::Ident(id) => {
+    loop {
+        match parser.node {
+            // eof
+            TokenNode::Op(' ', Spacing::Joint) => break,
+
+            // here we can expect either a condition declaration
+            // or simply a rule, which is then implicitly in the
+            // "Initial" condition
+            // in any case, we expect an ident or a regex first
+            TokenNode::Term(id) => {
                 // this may be either the start of a regexp followed
                 // by an arrow and an action or a condition followed
                 // by an opening brace.
                 // if we see an opening brace '{' here then it's a
                 // condition whose name is the id we just parsed
-                if parser.look_ahead(1, |tok| tok == &token::OpenDelim(token::Brace)) {
+
+                let la = ::std::mem::replace(&mut parser.lookahead.kind, EOF);
+                if let TokenNode::Group(Delimiter::Brace, gr) = la {
                     // ok it's a condition
                     // bump 2 times: the identifier and the lbrace
                     let sp = parser.span;
@@ -391,10 +360,11 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
                     parser.bump();
 
                     // parse the condition body
-                    let rules = try!(get_condition(parser, env));
+                    let mut sub = Parser::new(gr);
+                    let rules = try!(get_condition(&mut sub, env));
 
                     // have we seen this condition before ?
-                    match cond_names.get(&id.name).cloned() {
+                    match cond_names.get(id.as_str()).cloned() {
                         Some(i) => {
                             ret[i].rules.extend(rules.into_iter());
                             continue
@@ -404,14 +374,16 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
                     }
 
                     // nope, create it
-                    ret.push(Condition { rules: rules, span: sp, name: id.name });
-                    cond_names.insert(id.name, ret.len() - 1);
+                    ret.push(Condition { rules: rules, span: sp, name: id });
+                    cond_names.insert(id.as_str().to_string(), ret.len() - 1);
                 } else {
                     // ok, it's not a condition, so it's a rule of the form
                     // regex => action, with regex beginning by an identifier
-                    let reg = try!(get_regex(parser, &token::FatArrow, env));
+                    parser.lookahead.kind = la;
+                    let reg = try!(get_regex(parser, '=', Spacing::Joint, env));
+                    try!(parser.expect_op('>', Spacing::Alone));
                     let expr = try!(parser.parse_expr());
-                    parser.eat(&token::Comma);
+                    parser.eat_op(',', Spacing::Alone);
                     ret[0].rules.push(Rule { pattern: reg, action: expr });
                 }
             }
@@ -419,9 +391,10 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
             _ => {
                 // it's not an ident, but it may still be the
                 // beginning of a regular expression
-                let reg = try!(get_regex(parser, &token::FatArrow, env));
+                let reg = try!(get_regex(parser, '=', Spacing::Joint, env));
+                try!(parser.expect_op('>', Spacing::Alone));
                 let expr = try!(parser.parse_expr());
-                parser.eat(&token::Comma);
+                parser.eat_op(',', Spacing::Alone);
                 ret[0].rules.push(Rule { pattern: reg, action: expr });
             }
         }
@@ -430,15 +403,192 @@ fn get_conditions<'a>(parser: &mut Parser<'a>, env: &Env)
     Ok(ret)
 }
 
+// an endless stream of TokenTree
+// returns tts from the original stream until it reaches the end, and then
+// endlessly returns eof (represented as an op with a value of space, which
+// should never appear in the original stream) with the span of the last
+// token.
+struct EndlessTokStream {
+    stream: TokenTreeIter,
+    span: Span
+}
+
+const EOF: TokenNode = TokenNode::Op(' ', Spacing::Joint);
+
+impl EndlessTokStream {
+    fn next(&mut self) -> TokenTree {
+        match self.stream.next() {
+            Some(tt) => {
+                self.span = tt.span;
+                tt
+            }
+            None => TokenTree {
+                span: self.span,
+                kind: EOF
+            }
+        }
+    }
+}
+
+struct Parser {
+    node: TokenNode,
+    span: Span,
+    lookahead: TokenTree,
+    prev_span: Span,
+    stream: EndlessTokStream
+}
+
+impl Parser {
+    fn new(tokens: TokenStream) -> Parser {
+        let mut stream = EndlessTokStream {
+            stream: tokens.into_iter(),
+            // will only be used if we don't
+            // have any tokens in the stream
+            span: Span::call_site()
+        };
+        let tt = stream.next();
+        let la = stream.next();
+        Parser {
+            node: tt.kind,
+            span: tt.span,
+            lookahead: la,
+            prev_span: tt.span,
+            stream: stream
+        }
+    }
+
+    // parse a Rust ‶type″.
+    // proc_macro has no knowledge of types so for the moment our definition
+    // what is a type is a single tt, like a term or a parenthesized more
+    // complex expression.
+    // the downside is that we are no longer able to parse something
+    // like Vec<T> without parens but that will do for now.
+    fn parse_ty(&mut self) -> PResult<TokenTree> {
+        match self.node {
+            TokenNode::Term(_) |
+            TokenNode::Group(Delimiter::Parenthesis, _) |
+            TokenNode::Group(Delimiter::Bracket, _) => {
+                let span = self.span;
+                let tt = self.bump_and_get();
+                Ok(TokenTree { kind: tt, span: span })
+            }
+            _ => Err(self.span_error("expected a type"))
+        }
+    }
+
+    // parse a Rust ‶expr″.
+    // same as type, expect we also allow literals and {}-delimited blocks here
+    fn parse_expr(&mut self) -> PResult<TokenTree> {
+        match self.node {
+            TokenNode::Term(_) |
+            TokenNode::Literal(_) |
+            TokenNode::Group(_, _) => {
+                let span = self.span;
+                let tt = self.bump_and_get();
+                Ok(TokenTree { kind: tt, span: span })
+            }
+            _ => Err(self.span_error("expected an expression"))
+        }
+    }
+}
+
+impl Tokenizer for Parser {
+    // fn token(&self) -> &token::Token { &self.token }
+
+    fn bump(&mut self) {
+        self.prev_span = self.span;
+        self.node = ::std::mem::replace(&mut self.lookahead.kind, EOF);
+        self.span = self.lookahead.span;
+        self.lookahead = self.stream.next();
+    }
+
+    fn bump_and_get(&mut self) -> TokenNode {
+        let token = ::std::mem::replace(&mut self.node, EOF);
+        self.bump();
+        token
+    }
+
+    fn eat_op(&mut self, op: char, spacing: Spacing) -> bool {
+        if self.check_op(op, spacing) {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn eat_keyword(&mut self, kwd: &str) -> bool {
+        if self.check_keyword(kwd) {
+            self.bump();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn check_op(&mut self, op: char, spacing: Spacing) -> bool {
+        match self.node {
+            TokenNode::Op(ch, spc) if ch == op && spc == spacing => true,
+            _ => false
+        }
+    }
+
+    fn check_keyword(&mut self, kwd: &str) -> bool {
+        match self.node {
+            TokenNode::Term(t) if t.as_str() == kwd => true,
+            _ => false
+        }
+    }
+
+    fn expect_op(&mut self, op: char, spacing: Spacing) -> PResult<()> {
+        if self.check_op(op, spacing) { Ok(self.bump()) }
+        else { Err(self.span_error(&format!("expected {}", op))) }
+    }
+
+    fn parse_ident(&mut self) -> PResult<Term> {
+        match self.node {
+            TokenNode::Term(t) => {
+                self.bump();
+                Ok(t)
+            }
+
+            // TODO: errors
+            _ => Err(self.span_error("expected an identifier"))
+        }
+    }
+
+    fn last_span(&self) -> Span {
+        self.prev_span
+    }
+
+    fn span_error(&self, m: &str) -> Diagnostic {
+        Diagnostic::spanned(self.span.into(), ::proc_macro::Level::Error, m)
+    }
+
+    fn unexpected(&self) -> Diagnostic {
+        self.span_error("unexpected token")
+    }
+
+    fn unexpected_last(&mut self) -> Diagnostic {
+        Diagnostic::spanned(self.last_span().into(),
+                            ::proc_macro::Level::Error,
+                            "unexpected token")
+    }
+}
+
 // runs the parsing of the full analyser description
 // - first gets an environment of the regular expression definitions
 // - then parses the definitions of the rules and the conditions
-pub fn parse<'a>(ident:Ident, parser: &mut Parser<'a>) ->
-        Result<LexerDef,DiagnosticBuilder<'a>> {
-    let tokens = try!(get_tokens(parser));
-    let props = try!(get_properties(parser));
-    let (env, defs) = try!(get_definitions(parser));
-    let conditions = try!(get_conditions(parser, &env));
-    Ok(LexerDef { ident:ident, tokens:tokens, properties: props, defs: defs,
-                  conditions: conditions })
+pub fn parse<'a>(inp: TokenStream) -> PResult<LexerDef> {
+    let mut parser = Parser::new(inp);
+    let name = try!(parser.parse_ident());
+    try!(parser.expect_op(':', Spacing::Alone));
+    let tokens = try!(get_tokens(&mut parser));
+    let props = try!(get_properties(&mut parser));
+    let (env, defs) = try!(get_definitions(&mut parser));
+    let conditions = try!(get_conditions(&mut parser, &env));
+    Ok(LexerDef {
+        ident: name, tokens: tokens, properties: props,
+        defs: defs, conditions: conditions
+    })
 }

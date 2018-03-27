@@ -4,8 +4,6 @@
 #[allow(plugin_as_library)]
 extern crate rustlex;
 
-#[macro_use] extern crate log;
-
 use std::io::BufReader;
 
 use self::Token::{Open,Close};

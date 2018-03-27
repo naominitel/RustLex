@@ -11,8 +11,11 @@ license = "MIT"
 [lib]
 name = "rustlex_codegen"
 path = "lib.rs"
+proc-macro = true
 
 [dependencies]
 bit-set = ">= 0.3.0"
 log = "0.3.6"
-rustlex_fsa   = { version = "0.4.0",  path = "../fsa" }
+rustlex_fsa = { version = "0.4.0",  path = "../fsa" }
+quote = "*"
+proc-macro2 = { version = "*", features = [ "nightly"] }

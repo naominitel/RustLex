@@ -1,11 +1,9 @@
-#![feature(plugin_registrar, rustc_private)]
+#![feature(proc_macro)]
 
 extern crate rustlex_codegen;
-extern crate rustc_plugin;
+extern crate proc_macro;
 
-pub use rustlex_codegen::rt;
-
-#[plugin_registrar]
-pub fn plugin_registrar(reg: &mut rustc_plugin::Registry) {
-    rustlex_codegen::plugin_registrar(reg);
+#[proc_macro]
+pub fn foo(inp: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    panic!()
 }

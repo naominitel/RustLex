@@ -51,7 +51,7 @@ pub enum RegexNode {
     Literal(Const),
 
     // bind
-    Bind(::syntax::ast::Ident, Regex)
+    Bind(::proc_macro2::Term, Regex)
 }
 
 pub fn string(string: &str) -> Option<Regex> {
