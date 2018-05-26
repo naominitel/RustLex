@@ -95,9 +95,9 @@ pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> 
     let docattr = attr::mk_attr_outer(
         sp, attr::mk_attr_id(),
         attr::mk_list_item(
-            Symbol::intern("allow"),
-            vec![span(sp, ast::NestedMetaItemKind::MetaItem(
-                attr::mk_word_item(Symbol::intern("missing_docs"))
+            sp, ast::Ident::with_empty_ctxt(Symbol::intern("allow")),
+            vec![span(sp, ast::NestedMetaItemKind::MetaItem(attr::mk_word_item(
+                ast::Ident::with_empty_ctxt(Symbol::intern("missing_docs")))
             ))]
         )
     );
@@ -189,7 +189,11 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     //   of states in the FSM, which gives the transitions between states
     let ty_vec = cx.ty(sp, ast::TyKind::Array(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_usize(sp, 256)));
+        ast::AnonConst {
+            id: ast::DUMMY_NODE_ID,
+            value: cx.expr_usize(sp, 256)
+        }
+    ));
     let mut transtable = Vec::new();
 
     for st in lex.auto.states.iter() {
@@ -202,8 +206,10 @@ fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
     }
 
     let ty_transtable = cx.ty(sp, ast::TyKind::Array(
-        ty_vec,
-        cx.expr_usize(sp, lex.auto.states.len())
+        ty_vec, ast::AnonConst {
+            id: ast::DUMMY_NODE_ID,
+            value: cx.expr_usize(sp, lex.auto.states.len())
+        }
     ));
 
     let transtable = cx.item_static(
@@ -228,7 +234,10 @@ fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item>
     //   each state
     let ty_acctable = cx.ty(sp, ast::TyKind::Array(
         cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_usize(sp, lex.auto.states.len())
+        ast::AnonConst {
+            id: ast::DUMMY_NODE_ID,
+            value: cx.expr_usize(sp, lex.auto.states.len())
+        }
     ));
 
     let mut acctable = Vec::new();
