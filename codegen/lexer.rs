@@ -2,9 +2,12 @@ use analysis;
 use fsa::dfa;
 use regex;
 use unicode;
-use proc_macro::Diagnostic;
-use proc_macro2::{Span, Term, TokenTree};
-use quote;
+use proc_macro::TokenStream;
+use proc_macro2::{Delimiter// , Term
+                 , TokenNode, };
+use proc_macro2::{Term, TokenTree, Span};
+use proc_macro::{Diagnostic};
+use quote::quote;
 
 // a rule is a regular expression pattern associated
 // to a Rust code snippet
@@ -52,7 +55,7 @@ pub struct Lexer {
     pub tokens: Term,
     pub ident: Term,
     pub auto: dfa::Automaton<regex::Action>,
-    pub actions: Vec<quote::Tokens>,
+    pub actions: Vec<TokenTree>,
     pub conditions: Vec<(Term, usize)>,
     pub properties: Vec<Prop>
 }
@@ -63,7 +66,10 @@ impl Lexer {
     pub fn new(def: LexerDef) -> Result<Lexer, ()> {
         // all the actions in the lexical analyser
         // 0 is a dummy action that represent no action
-        let mut acts = vec!(quote!{ unreachable!() });
+        let mut acts = vec![
+            TokenNode::Group(Delimiter::Parenthesis,
+                             quote!{ unreachable!() }.into()).into()
+        ];
         let mut id = 1usize;
 
         // now build the automatas and record
@@ -78,7 +84,8 @@ impl Lexer {
 
             for &Rule { ref pattern, ref action } in cond.rules.iter() {
                 asts.push((pattern.clone(), regex::Action(id)));
-                acts.push(quote!{ action });
+                // FIXME: this cloning shouldn't be necessary.
+                acts.push(action.clone());
                 id += 1;
             }
 
@@ -93,17 +100,20 @@ impl Lexer {
         }
 
         // analysis
-        let error = false;
+        let mut error = false;
 
         for &s in dfas.initials.iter() {
             let regex::Action(act) = dfas.states[s].data;
             if act != 0 {
-                Diagnostic::span_err(acts[act].span,
-                                     "this rule accepts the empty word")
-                    .help("this might cause the automaton \
-                           to loop on some inputs")
-                    .emit();
-                error = true;
+                // FIXME: we sould report the span of the whole rule, or
+                // pattern, instead of just the span of the action.
+                // Diagnostic::spanned(acts[act].span, ::proc_macro::Level::Error,
+                //                     "this rule accepts the empty word")
+                //     .help("this might cause the automaton \
+                //            to loop on some inputs")
+                //     .emit();
+                // error = true;
+                panic!()
             }
         }
 
@@ -112,19 +122,23 @@ impl Lexer {
             analysis::check_automaton(&dfas, acts.len());
 
         for regex::Action(act) in unreachable.into_iter() {
-            Diagnostic::span_err(acts[act].span, "unreachable pattern")
-                .help("make sure it is not included in another pattern ; \
-                       latter patterns have precedence")
-                .emit();
-            error = true;
+            // Diagnostic::spanned(acts[act].span, ::proc_macro::Level::Error,
+            //                     "unreachable pattern")
+            //     .help("make sure it is not included in another pattern ; \
+            //            latter patterns have precedence")
+            //     .emit();
+            // error = true;
+            panic!()
         }
 
         for cond in incomplete.into_iter() {
-            Diagnostic::span_err(def.conditions[cond].span,
-                                 "this automaton is incomplete")
-              .help("maybe add a catch-all rule?")
-              .emit();
-            error = true;
+            // Diagnostic::spanned(def.conditions[cond].span,
+            //                     ::proc_macro::Level::Error,
+            //                     "this automaton is incomplete")
+            //   .help("maybe add a catch-all rule?")
+            //   .emit();
+            // error = true;
+            panic!();
         }
 
         if error { return Err(()) }
@@ -140,15 +154,15 @@ impl Lexer {
         })
     }
 
-//     // the generated code model consists of several Rust "items", i.e.
-//     // declarations that are not statements
-//     // - declaration of the transition table and accepting table
-//     // - declaration of the condition names and a few macros to
-//     //   make the writing of actions easier
-//     // - the Lexer struct and its impl block that implements the actual
-//     // code of simulation of the automaton
-//     // pub fn gen_code<'cx>(&self, cx: &'cx mut ExtCtxt, sp: Span) -> Box<MacResult + 'cx> {
-//     //     info!("generating code...");
-//     //     ::codegen::codegen(self, cx, sp) as Box<MacResult + 'cx>
-//     // }
+    // the generated code model consists of several Rust "items", i.e.
+    // declarations that are not statements
+    // - declaration of the transition table and accepting table
+    // - declaration of the condition names and a few macros to
+    //   make the writing of actions easier
+    // - the Lexer struct and its impl block that implements the actual
+    // code of simulation of the automaton
+    pub fn gen_code(&self) -> TokenStream {
+        info!("generating code...");
+        ::codegen::codegen(self)
+    }
 }

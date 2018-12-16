@@ -12,7 +12,6 @@ license = "MIT"
 [lib]
 name = "rustlex"
 path = "lib.rs"
-proc-macro = true
 
 [dependencies]
 rustlex_codegen = { version = "0.4.0", path = "codegen" }

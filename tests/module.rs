@@ -1,10 +1,9 @@
-#![feature(rustc_private,plugin)]
-#![plugin(rustlex)]
+#![feature(proc_macro)]
 
-#[allow(plugin_as_library)]
 extern crate rustlex;
 
 mod l {
+    use ::rustlex::rustlex;
     use self::Token::TokA;
 
     #[derive(PartialEq,Debug)]
@@ -12,10 +11,10 @@ mod l {
         TokA(String),
     }
 
-    rustlex! SimpleLexer {
+    rustlex! { SimpleLexer:
         let A = 'a';
-        . => |_:&mut SimpleLexer<R>| None
-        A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+        . => (|_:&mut SimpleLexer<R>| None)
+        A => (|lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() )))
     }
 }
 

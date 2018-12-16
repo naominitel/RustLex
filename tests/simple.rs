@@ -1,8 +1,8 @@
-#![feature(plugin,main)]
-#![plugin(rustlex)]
+#![feature(proc_macro)]
 
-#[allow(plugin_as_library)]
 extern crate rustlex;
+use rustlex::rustlex;
+use rustlex::rt::*;
 
 use std::io::BufReader;
 
@@ -14,10 +14,11 @@ pub enum Token {
     TokA(String),
 }
 
-rustlex! SimpleLexer {
+rustlex! { SimpleLexer:
+    token Token;
     let A = 'a';
-    . => |_:&mut SimpleLexer<R>| None
-    A => |lexer:&mut SimpleLexer<R>| Some(TokA ( lexer.yystr() ))
+    . => (|_:&mut SimpleLexer<R>| None)
+    A => (|lexer:&mut SimpleLexer<R>| { panic!("{}", current_st); Some(TokA ( lexer.yystr() )) })
 }
 
 #[test]
@@ -38,11 +39,11 @@ pub enum TokenB {
     TokB(String)
 }
 
-rustlex! OtherLexer {
+rustlex! { OtherLexer:
     token TokenB;
     let B = 'b';
-    . => |_:&mut OtherLexer<R>| None
-    B => |lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() ))
+    . => (|_:&mut OtherLexer<R>| None)
+    B => (|lexer:&mut OtherLexer<R>| Some(TokB ( lexer.yystr() )))
 }
 
 #[test]

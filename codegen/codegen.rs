@@ -1,294 +1,150 @@
 use lexer::Lexer;
 use lexer::Prop;
 use regex;
-use syntax::attr;
-use syntax::ast;
-use syntax::ast::Ident;
-use syntax::codemap::{Span, Spanned};
-use syntax::ext::base::ExtCtxt;
-use syntax::ext::base::MacResult;
-use syntax::ext::build::AstBuilder;
-use syntax::symbol::Symbol;
-use syntax::ptr::P;
-use syntax::util::small_vector::SmallVector;
+use proc_macro::{Literal, TokenNode};
+use proc_macro2::{Span, Term, TokenStream};
+use quote::{quote, quote_spanned, Tokens};
+use std::iter::FromIterator;
 
-// struct returned by the code generator
-// implements a trait containing method called by libsyntax
-// on macro expansion
-pub struct CodeGenerator<'cx> {
-    // we need this to report
-    // errors when the macro is
-    // not called correctly
-    handler: &'cx ::rustc_errors::Handler,
-    span: Span,
+pub fn lexer_struct(ident: Term, props: &[Prop]) -> Tokens {
+    let ident = ident;
+    let fields: TokenStream = props.iter().flat_map(|&(name, ref ty, _)| {
+        let ty = ty.clone();
+        quote!{ pub #name: #ty, }
+    }).collect();
 
-    // items
-    items: Vec<P<ast::Item>>
-}
-
-
-impl<'cx> MacResult for CodeGenerator<'cx> {
-    fn make_items(self:Box<CodeGenerator<'cx>>)
-            -> Option<SmallVector<P<ast::Item>>> {
-        Some(SmallVector::many(self.items.clone()))
-    }
-
-    #[allow(unreachable_code,unused_must_use)]
-    fn make_stmts(self:Box<CodeGenerator<'cx>>) -> Option<SmallVector<ast::Stmt>> {
-        self.handler.span_unimpl(self.span,
-            "invoking rustlex on statement context is not implemented");
-        panic!("invoking rustlex on statement context is not implemented")
-    }
-
-    #[allow(unreachable_code,unused_must_use)]
-    fn make_expr(self:Box<CodeGenerator<'cx>>) -> Option<P<ast::Expr>> {
-        self.handler.span_fatal(self.span,
-            "rustlex! invoked on expression context");
-        panic!("rustlex! invoked on expression context")
+    quote!{
+        #[allow(missing_docs)]
+        pub struct #ident<R: ::std::io::Read> {
+            pub _input: ::rustlex::rt::RustLexLexer<R>,
+            pub _state: usize,
+            #fields
+        }
     }
 }
 
-fn span<T>(sp: Span, t: T) -> Spanned<T> {
-    Spanned { span: sp, node: t }
-}
-
-#[inline(always)]
-pub fn lexer_field(sp: Span, name: ast::Ident, ty: P<ast::Ty>) -> ast::StructField {
-    ast::StructField {
-        span: sp,
-        ident: Some(name),
-        vis: span(sp, ast::VisibilityKind::Public),
-        id: ast::DUMMY_NODE_ID,
-        ty: ty,
-        attrs: vec![]
-    }
-}
-
-
-#[inline(always)]
-pub fn lexer_struct(cx: &mut ExtCtxt, sp: Span, ident:Ident, props: &[Prop]) -> P<ast::Item> {
-
-    let mut fields = Vec::with_capacity(props.len() + 1);
-
-    for &(name, ref ty, _) in props.iter() {
-        fields.push(lexer_field(sp, ast::Ident::with_empty_ctxt(name), ty.clone()));
-    }
-
-    fields.push(ast::StructField {
-        span: sp,
-        ident: Some(ast::Ident::with_empty_ctxt(Symbol::intern("_input"))),
-        vis: span(sp, ast::VisibilityKind::Public),
-        id: ast::DUMMY_NODE_ID,
-        ty: quote_ty!(&*cx, ::rustlex::rt::RustLexLexer<R>),
-        attrs: vec![]
-    });
-
-    fields.push(ast::StructField {
-        span: sp,
-        ident: Some(ast::Ident::with_empty_ctxt(Symbol::intern("_state"))),
-        vis: span(sp, ast::VisibilityKind::Public),
-        id: ast::DUMMY_NODE_ID,
-        ty: quote_ty!(&*cx, usize),
-        attrs: vec![]
-    });
-
-    let docattr = attr::mk_attr_outer(
-        sp, attr::mk_attr_id(),
-        attr::mk_list_item(
-            Symbol::intern("allow"),
-            vec![span(sp, ast::NestedMetaItemKind::MetaItem(
-                attr::mk_word_item(Symbol::intern("missing_docs"))
-            ))]
-        )
-    );
-
-    P(ast::Item {
-        ident:ident,
-        attrs: vec![ docattr ],
-        id:ast::DUMMY_NODE_ID,
-        node: ast::ItemKind::Struct(
-            ast::VariantData::Struct(fields, ast::DUMMY_NODE_ID),
-            ast::Generics {
-                params: vec![
-                    ast::GenericParam::Type(cx.typaram(
-                        sp, ast::Ident::with_empty_ctxt(Symbol::intern("R")), vec![],
-                        vec![
-                            cx.typarambound(cx.path_global(sp, vec![
-                                ast::Ident::with_empty_ctxt(Symbol::intern("std")),
-                                ast::Ident::with_empty_ctxt(Symbol::intern("io")),
-                                ast::Ident::with_empty_ctxt(Symbol::intern("Read"))
-                            ]))
-                        ],
-                        None
-                    ))
-                ],
-                where_clause: ast::WhereClause {
-                    id: ast::DUMMY_NODE_ID,
-                    predicates: Vec::new(),
-                    span: sp
-                },
-                span: sp
-            }
-        ),
-        vis: span(sp, ast::VisibilityKind::Public),
-        span: sp,
-        tokens: None
-    })
-}
-
-pub fn codegen<'cx>(lex: &Lexer, cx: &'cx mut ExtCtxt, sp: Span)
-                    -> Box<CodeGenerator<'cx>> {
-    let mut items = Vec::new();
-
-    items.push(lexer_struct(cx, sp, lex.ident, &lex.properties));
-
+pub fn codegen<'cx>(lex: &Lexer) -> ::proc_macro::TokenStream {
+    let strukt = lexer_struct(lex.ident, &lex.properties);
     // functions of the Lexer and InputBuffer structs
-    // TODO:
+    let impls = user_lexer_impl(lex);
+    let items = quote_spanned!{Span::def_site()=>
+        #strukt
+        #impls
+    };
 
-    items.extend(user_lexer_impl(cx, sp, lex).into_iter());
     info!("done!");
-
-    Box::new(CodeGenerator {
-        span: sp,
-        // FIXME:
-        handler: &cx.parse_sess.span_diagnostic,
-        items: items
-    })
+    items.into()
 }
 
-pub fn actions_match(lex:&Lexer, cx: &mut ExtCtxt, sp: Span) -> P<ast::Expr> {
-    let match_expr = quote_expr!(&*cx, last_matching_action);
-    let mut arms = Vec::with_capacity(lex.actions.len());
-    let mut i = 1usize;
-
+pub fn actions_match(lex:&Lexer) -> Tokens {
     let tokens = lex.tokens;
     let ident = lex.ident;
-    let action_type = quote_ty!(&*cx,  Fn(&mut $ident<R>) -> Option<$tokens>);
 
-    for act in lex.actions.iter().skip(1) {
-        let pat_expr = quote_expr!(&*cx, $i);
-        let pat = cx.pat_lit(sp, pat_expr);
-        let new_act = act.clone();
-        let arm = cx.arm(sp, vec!(pat),
-            quote_expr!(&*cx, (Box::new($new_act)) as Box<$action_type>));
-        arms.push(arm);
+    let mut i = 1usize;
+    let action_type = quote!( Fn(&mut #ident<R>) -> Option<#tokens>);
+
+    let arms: TokenStream = lex.actions.iter().skip(1).flat_map(|act| {
+        let lit = i;
+        let act = act.clone();
+        let arm = quote_spanned!{Span::call_site()=>
+            #lit => (Box::new(#act)) as Box<#action_type>,
+        };
+        // FIXME: should use enumerate
         i += 1;
+        arm
+    }).collect();
+
+    quote_spanned!{Span::call_site()=>
+        match last_matching_action {
+            #arms
+            x => unreachable!()
+        }
     }
-
-    let def_act = quote_expr!(&*cx, Box::new(|_:&mut $ident<R>| -> Option<$tokens> {
-        unreachable!()
-    }) as Box<$action_type>);
-
-    let def_pat = cx.pat_wild(sp);
-    arms.push(cx.arm(sp, vec!(def_pat), def_act));
-    cx.expr_match(sp, match_expr, arms)
 }
 
-fn simple_follow_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
+fn simple_follow_method(lex: &Lexer) -> Tokens {
+    let ident = lex.ident;
+    let len = lex.auto.states.len();
     // * transtable: an array of N arrays of 256 uints, N being the number
     //   of states in the FSM, which gives the transitions between states
-    let ty_vec = cx.ty(sp, ast::TyKind::Array(
-        cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_usize(sp, 256)));
-    let mut transtable = Vec::new();
+    let transtable: TokenStream = lex.auto.states.iter().flat_map(|st| {
+        let vec: TokenStream = st.trans.iter().flat_map(|&i| {
+            quote!{ #i, }
+        }).collect();
+        quote!{ [ #vec ], }
+    }).collect();
 
-    for st in lex.auto.states.iter() {
-        let mut vec = Vec::new();
-        for i in st.trans.iter() {
-            vec.push(cx.expr_usize(sp, *i));
-        }
-        let trans_expr = cx.expr_vec(sp, vec);
-        transtable.push(trans_expr);
-    }
-
-    let ty_transtable = cx.ty(sp, ast::TyKind::Array(
-        ty_vec,
-        cx.expr_usize(sp, lex.auto.states.len())
-    ));
-
-    let transtable = cx.item_static(
-        sp, cx.ident_of("TRANSITION_TABLE"), ty_transtable,
-        ast::Mutability::Immutable, cx.expr_vec(sp, transtable)
-    );
-
-    let ident = lex.ident;
-    quote_item!(cx,
-        impl<R: ::std::io::Read> $ident<R> {
+    quote!{
+        impl<R: ::std::io::Read> #ident<R> {
             #[inline(always)]
-            fn follow(&self, current_state:usize, symbol:usize) -> usize {
-                $transtable
+            fn follow(&self, current_state: usize, symbol: usize) -> usize {
+                static TRANSITION_TABLE: [[usize; 256]; #len] = [ #transtable ];
                 return TRANSITION_TABLE[current_state][symbol];
             }
         }
-    ).unwrap()
+    }
 }
 
-fn simple_accepting_method(cx:&mut ExtCtxt, sp:Span, lex:&Lexer) -> P<ast::Item> {
+fn simple_accepting_method(lex: &Lexer) -> Tokens {
+    let ident = lex.ident;
+    let len = lex.auto.states.len();
     // * accepting: an array of N uints, giving the action associated to
     //   each state
-    let ty_acctable = cx.ty(sp, ast::TyKind::Array(
-        cx.ty_ident(sp, cx.ident_of("usize")),
-        cx.expr_usize(sp, lex.auto.states.len())
-    ));
-
-    let mut acctable = Vec::new();
-    for st in lex.auto.states.iter() {
+    let acctable: TokenStream = lex.auto.states.iter().flat_map(|st| {
         let regex::Action(act) = st.data;
-        let acc_expr = cx.expr_usize(sp, act);
-        acctable.push(acc_expr);
-    }
-    let acctable = cx.item_static(
-        sp, cx.ident_of("ACCEPTING"), ty_acctable,
-        ast::Mutability::Immutable, cx.expr_vec(sp, acctable)
-    );
+        quote!{ #act, }
+    }).collect();
 
-    let ident = lex.ident;
-    quote_item!(cx,
-        impl<R: ::std::io::Read> $ident<R> {
+    quote!{
+        impl<R: ::std::io::Read> #ident<R> {
             #[inline(always)]
-            fn accepting(&self, state:usize) -> usize {
-                $acctable
+            fn accepting(&self, state: usize) -> usize {
+                static ACCEPTING: [usize; #len] = [ #acctable ];
                 return ACCEPTING[state];
             }
         }
-    ).unwrap()
+    }
 }
 
-pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Item>> {
-    let actions_match = actions_match(lex, cx, sp);
-    let mut fields = Vec::with_capacity(lex.properties.len() + 1);
-
-    for &(name, _, ref expr) in lex.properties.iter() {
-        fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(name), expr.clone()));
-    }
-
-    let initial = lex.auto.initials[lex.conditions[0].1];
-    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(Symbol::intern("_input")),
-        quote_expr!(&*cx, ::rustlex::rt::RustLexLexer::new(reader))));
-    fields.push(cx.field_imm(sp, ast::Ident::with_empty_ctxt(Symbol::intern("_state")),
-        quote_expr!(&*cx, $initial)));
-
-    let init_expr = cx.expr_struct_ident(sp, lex.ident, fields);
-
+pub fn user_lexer_impl(lex: &Lexer) -> Tokens {
+    let tokens = lex.tokens;
     let ident = lex.ident;
+    let initial = lex.auto.initials[lex.conditions[0].1];
+
+    let fields: TokenStream = lex.properties.iter().flat_map(|&(name, _, ref expr)| {
+        let name = name;
+        let expr = expr.clone();
+        quote!{ #name: #expr }
+    }).collect();
+
     // condition methods
-    let mut items:Vec<P<ast::Item>> = lex.conditions.iter().map(|&(cond,st)| {
-        let st = lex.auto.initials[st];
-        let cond = ast::Ident::with_empty_ctxt(cond);
-        quote_item!(cx,
-            impl<R: ::std::io::Read> $ident<R> {
+    let conds: TokenStream = lex.conditions.iter().flat_map(|&(cond,st)| {
+        let cond = cond;
+        let init = lex.auto.initials[st];
+        quote!{
+            impl<R: ::std::io::Read> #ident<R> {
                 #[inline(always)]
                 #[allow(dead_code)]
                 #[allow(non_snake_case)]
-                fn $cond(&mut self) { self._state = $st; }
+                fn #cond(&mut self) {
+                    self._state = #init;
+                }
             }
-        ).unwrap()
+        }
     }).collect();
 
-    items.push(quote_item!(cx,
-        impl<R: ::std::io::Read> $ident<R> {
-            pub fn new(reader:R) -> $ident<R> {
-                $init_expr
+    let follow = simple_follow_method(lex);
+    let accept = simple_accepting_method(lex);
+    let actions = actions_match(lex);
+
+    quote_spanned!{Span::def_site()=>
+        impl<R: ::std::io::Read> #ident<R> {
+            pub fn new(reader:R) -> #ident<R> {
+                #ident {
+                    _input: ::rustlex::rt::RustLexLexer::new(reader),
+                    _state: #initial,
+                    #fields
+                }
             }
 
             #[allow(dead_code)]
@@ -318,17 +174,16 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                 }
             }
         }
-    ).unwrap());
 
-    items.push(simple_follow_method(cx, sp, lex));
-    items.push(simple_accepting_method(cx, sp, lex));
+        #conds
 
-    let tokens = lex.tokens;
-    items.push(quote_item!(cx,
-        impl <R: ::std::io::Read> Iterator for $ident<R> {
-            type Item = $tokens;
+        #follow
+        #accept
 
-            fn next(&mut self) -> Option<$tokens> {
+        impl <R: ::std::io::Read> Iterator for #ident<R> {
+            type Item = #tokens;
+
+            fn next(&mut self) -> Option<#tokens> {
                 loop {
                     self._input.tok = self._input.pos;
                     self._input.advance = self._input.pos;
@@ -360,7 +215,7 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                     self._input.pos = self._input.advance;
 
                     // execute action corresponding to found state
-                    let action_result = $actions_match(self) ;
+                    let action_result = #actions(self);
 
                     match action_result {
                         Some(token) => return Some(token),
@@ -370,7 +225,6 @@ pub fn user_lexer_impl(cx: &mut ExtCtxt, sp: Span, lex:&Lexer) -> Vec<P<ast::Ite
                 }
             }
         }
-    ).unwrap());
-    items
+    }
 }
 

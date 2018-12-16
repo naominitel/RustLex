@@ -17,5 +17,5 @@ proc-macro = true
 bit-set = ">= 0.3.0"
 log = "0.3.6"
 rustlex_fsa = { version = "0.4.0",  path = "../fsa" }
-quote = "*"
-proc-macro2 = { version = "*", features = [ "nightly"] }
+quote = "0.4"
+proc-macro2 = "0.2"

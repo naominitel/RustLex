@@ -1,8 +1,7 @@
-#![feature(rustc_private,plugin)]
-#![plugin(rustlex)]
+#![feature(proc_macro)]
 
-#[allow(plugin_as_library)]
 extern crate rustlex;
+use rustlex::rustlex;
 
 use std::io::BufReader;
 
@@ -14,16 +13,16 @@ pub enum Token {
     Close
 }
 
-rustlex! PropertiesLexer {
+rustlex! { PropertiesLexer:
     property depth:isize = 0;
     let OPEN = '(';
     let CLOSE = ')';
-    . => |_:&mut PropertiesLexer<R>| { None }
-    OPEN => |lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) }
-    CLOSE => |lexer:&mut PropertiesLexer<R>| {
+    . => (|_:&mut PropertiesLexer<R>| { None })
+    OPEN => (|lexer:&mut PropertiesLexer<R>| { lexer.depth += 1; Some(Open) })
+    CLOSE => (|lexer:&mut PropertiesLexer<R>| {
         lexer.depth -= 1;
         if lexer.depth<0 { panic!("invalid parens nesting") };
-        Some(Close) }
+        Some(Close) })
 }
 
 #[test]

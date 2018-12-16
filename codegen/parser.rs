@@ -3,9 +3,10 @@
 // uses libsyntax to parse what Rustc gives us
 
 use std::collections::hash_map::HashMap;
-use std::iter::{self, FromIterator};
+use std::char;
 use proc_macro2::{TokenNode, TokenStream, TokenTree, TokenTreeIter};
-use proc_macro2::{Delimiter, Spacing, Span, Term};
+use proc_macro2::{Delimiter, Spacing, Term};
+use proc_macro2::{Span};
 use proc_macro::{Diagnostic};
 use lexer::{Condition, LexerDef, Rule};
 use regex;
@@ -15,7 +16,7 @@ pub type PResult<T> = Result<T, Diagnostic>;
 
 trait Tokenizer {
     // // returns the current token, without consuming it
-    // fn token(&self) -> &token::Token;
+    fn node(&self) -> &TokenNode;
 
     // consumes the current token
     fn bump(&mut self) -> ();
@@ -49,6 +50,175 @@ trait Tokenizer {
     fn unexpected(&self) -> Diagnostic;
 
     fn unexpected_last(&mut self) -> Diagnostic;
+}
+
+fn next_chr(s: &str) -> char {
+    s.chars().next().unwrap_or('\0')
+}
+
+fn backslash_x(s: &str) -> (u8, &str) {
+    let mut ch = 0;
+    let b0 = s.as_bytes()[0];
+    let b1 = s.as_bytes()[1];
+    ch += 0x10 * match b0 {
+        b'0'...b'9' => b0 - b'0',
+        b'a'...b'f' => 10 + (b0 - b'a'),
+        b'A'...b'F' => 10 + (b0 - b'A'),
+        _ => panic!("unexpected non-hex character after \\x"),
+    };
+    ch += match b1 {
+        b'0'...b'9' => b1 - b'0',
+        b'a'...b'f' => 10 + (b1 - b'a'),
+        b'A'...b'F' => 10 + (b1 - b'A'),
+        _ => panic!("unexpected non-hex character after \\x"),
+    };
+    (ch, &s[2..])
+}
+
+fn backslash_u(mut s: &str) -> (char, &str) {
+    if s.as_bytes()[0] != b'{' {
+        panic!("expected {{ after \\u");
+    }
+    s = &s[1..];
+
+    let mut ch = 0;
+    for _ in 0..6 {
+        let b = s.as_bytes()[0];
+        match b {
+            b'0'...b'9' => {
+                ch *= 0x10;
+                ch += u32::from(b - b'0');
+                s = &s[1..];
+            }
+            b'a'...b'f' => {
+                ch *= 0x10;
+                ch += u32::from(10 + b - b'a');
+                s = &s[1..];
+            }
+            b'A'...b'F' => {
+                ch *= 0x10;
+                ch += u32::from(10 + b - b'A');
+                s = &s[1..];
+            }
+            b'}' => break,
+            _ => panic!("unexpected non-hex character after \\u"),
+        }
+    }
+    assert!(s.as_bytes()[0] == b'}');
+    s = &s[1..];
+
+    if let Some(ch) = char::from_u32(ch) {
+        (ch, s)
+    } else {
+        panic!("character code {:x} is not a valid unicode character", ch);
+    }
+}
+
+// some helpers to parse the contents of proc_macro's literals since the only
+// representation provided is now a string including all escapes.
+// taken from syn: https://github.com/dtolnay/syn/blob/master/src/lit.rs
+pub fn parse_lit_char(mut s: &str) -> char {
+        assert_eq!(s.as_bytes()[0], b'\'');
+        s = &s[1..];
+
+        let ch = match s.as_bytes()[0] {
+            b'\\' => {
+                let b = s.as_bytes()[1];
+                s = &s[2..];
+                match b {
+                    b'x' => {
+                        let (byte, rest) = backslash_x(s);
+                        s = rest;
+                        assert!(byte <= 0x80,
+                                "Invalid \\x byte in string literal");
+                        char::from_u32(u32::from(byte)).unwrap()
+                    }
+                    b'u' => {
+                        let (chr, rest) = backslash_u(s);
+                        s = rest;
+                        chr
+                    }
+                    b'n' => '\n',
+                    b'r' => '\r',
+                    b't' => '\t',
+                    b'\\' => '\\',
+                    b'0' => '\0',
+                    b'\'' => '\'',
+                    b'"' => '"',
+                    b => panic!("unexpected byte {:?} after \
+                                 \\ character in byte literal", b),
+                }
+            }
+            _ => {
+                let ch = next_chr(s);
+                s = &s[ch.len_utf8()..];
+                ch
+            }
+        };
+        assert_eq!(s, "\'", "Expected end of char literal");
+        ch
+}
+
+fn parse_lit_str(mut s: &str) -> String {
+    assert_eq!(s.as_bytes()[0], b'"');
+        s = &s[1..];
+
+        let mut out = String::new();
+        'outer: loop {
+            let ch = match s.as_bytes()[0] {
+                b'"' => break,
+                b'\\' => {
+                    let b = s.as_bytes()[1];
+                    s = &s[2..];
+                    match b {
+                        b'x' => {
+                            let (byte, rest) = backslash_x(s);
+                            s = rest;
+                            assert!(byte <= 0x80,
+                                    "Invalid \\x byte in string literal");
+                            char::from_u32(u32::from(byte)).unwrap()
+                        }
+                        b'u' => {
+                            let (chr, rest) = backslash_u(s);
+                            s = rest;
+                            chr
+                        }
+                        b'n' => '\n',
+                        b'r' => '\r',
+                        b't' => '\t',
+                        b'\\' => '\\',
+                        b'0' => '\0',
+                        b'\'' => '\'',
+                        b'"' => '"',
+                        b'\r' | b'\n' => loop {
+                            let ch = next_chr(s);
+                            if ch.is_whitespace() {
+                                s = &s[ch.len_utf8()..];
+                            } else {
+                                continue 'outer;
+                            }
+                        },
+                        b => panic!("unexpected byte {:?} after \
+                                     \\ character in byte literal", b),
+                    }
+                }
+                b'\r' => {
+                    assert_eq!(s.as_bytes()[1], b'\n',
+                               "Bare CR not allowed in string");
+                    s = &s[2..];
+                    '\n'
+                }
+                _ => {
+                    let ch = next_chr(s);
+                    s = &s[ch.len_utf8()..];
+                    ch
+                }
+            };
+            out.push(ch);
+        }
+
+        assert_eq!(s, "\"");
+        out
 }
 
 // // the "lexical" environment of regular expression definitions
@@ -104,40 +274,58 @@ fn get_char_class<T: Tokenizer>(parser: &mut T)
             // eof
             TokenNode::Op(' ', Spacing::Joint) => break,
 
-            // TokenNode::Literal(token::Lit::Char(i), _) => {
-            //     let ch = parse::char_lit(&*i.as_str(), None).0;
+            TokenNode::Literal(lit) => {
+                let s = lit.to_string();
+                match s.as_bytes()[0] {
+                    b'\'' => {
+                        let ch = parse_lit_char(&s);
+                        match parser.node() {
+                            &TokenNode::Op('-', Spacing::Alone) => {
+                                // a char seq, e.g. 'a' - 'Z'
+                                parser.bump();
+                                let ch2 = match parser.bump_and_get() {
+                                    TokenNode::Literal(ch) => {
+                                        let s = ch.to_string();
+                                        if s.as_bytes()[0] != b'\'' {
+                                            return Err(parser.unexpected())
+                                        }
+                                        parse_lit_char(&s)
+                                    }
+                                    _ => return Err(parser.unexpected())
+                                };
+                                if ch >= ch2 {
+                                    let last_span = parser.last_span();
+                                    // return Err(Diagnostic::spanned(
+                                    //     last_span, ::proc_macro::Level::Error,
+                                    //     "invalid character range"
+                                    // ))
+                                    panic!()
+                                }
+                                ret.push(ch .. ch2);
+                            }
 
-            //     match *parser.token() {
-            //         token::BinOp(token::Minus) => {
-            //             // a char seq, e.g. 'a' - 'Z'
-            //             parser.bump();
-            //             let ch2 = match parser.bump_and_get() {
-            //                 token::Literal(token::Lit::Char(ch), _) =>
-            //                     parse::char_lit(&*ch.as_str(), None).0,
-            //                 _ => return Err(parser.unexpected())
-            //             };
-            //             if ch >= ch2 {
-            //                 let last_span = parser.last_span();
-            //                 return Err(parser.span_fatal(last_span,
-            //                     "invalid character range"))
-            //             }
-            //             ret.push(ch .. ch2);
-            //         }
+                            _ => { ret.push(ch .. ch); }
+                        }
+                    }
 
-            //         _ => { ret.push(ch .. ch); }
-            //     }
-            // }
+                    b'"' => {
+                        let chrs = parse_lit_str(&s);
+                        if chrs.len() == 0 {
+                            let last_span = parser.last_span();
+                            // return Err(Diagnostic::spanned(
+                            //     last_span, ::proc_macro::Level::Error,
+                            //     "bad string constant in character class"
+                            // ))
+                            panic!()
+                        }
+                        for b in chrs.chars() {
+                            ret.push(b .. b);
+                        }
+                    }
 
-            // token::Literal(token::Lit::Str_(id),_) => {
-            //     if id.as_str().len() == 0 {
-            //         let last_span = parser.last_span();
-            //         return Err(parser.span_fatal(last_span,
-            //             "bad string constant in character class"))
-            //     }
-            //     for b in id.as_str().chars() {
-            //         ret.push(b .. b);
-            //     }
-            // }
+                    _ => return Err(parser.unexpected_last())
+                }
+            }
 
             _ => return Err(parser.unexpected_last())
         }
@@ -165,7 +353,7 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> PResult<Regex> {
         }
         TokenNode::Group(Delimiter::Bracket, toks) => {
             let mut sub = Parser::new(toks);
-            if parser.eat_op('^', Spacing::Alone) {
+            if sub.eat_op('^', Spacing::Alone) {
                 Ok(Box::new(regex::Literal(
                     regex::NotClass(try!(get_char_class(&mut sub)))
                 )))
@@ -175,29 +363,36 @@ fn get_const<T: Tokenizer>(parser: &mut T, env: &Env) -> PResult<Regex> {
                 )))
             }
         }
-        // FIXME
-        // TokenNode::Literal(token::Lit::Char(ch), _) =>
-        //     Ok(Box::new(regex::Literal(
-        //         regex::Char(parse::char_lit(&*ch.as_str(), None).0)
-        //     ))),
-        // TokenNode::Literal(token::Lit::Str_(id), _) =>
-        //     match regex::string(&*id.as_str()) {
-        //         Some(reg) => Ok(reg),
-        //         None => {
-        //             let last_span = parser.last_span();
-        //             Err(parser.span_fatal(last_span,
-        //                 "bad string constant in regular expression"))
-        //         }
-        //     },
+        TokenNode::Literal(lit) => {
+            let s = lit.to_string();
+            match s.as_bytes()[0] {
+                b'\'' => Ok(Box::new(regex::Literal(
+                    regex::Char(parse_lit_char(&s))
+                ))),
+                b'"' =>
+                    match regex::string(&parse_lit_str(&s)) {
+                        Some(reg) => Ok(reg),
+                        None => {
+                            let last_span = parser.last_span();
+                            // Err(Diagnostic::spanned(
+                            //     last_span, ::proc_macro::Level::Error,
+                            //     "bad string constant in regular expression"
+                            // ))
+                            panic!()
+                        }
+                    },
+                _ => Err(parser.unexpected_last())
+            }
+        }
         TokenNode::Term(id) => match env.get(id.as_str()).cloned() {
             Some(value) => Ok(Box::new(regex::Var(value))),
             None => {
-                let last_span = parser.last_span();
-                Err(Diagnostic::spanned(
-                    ::proc_macro::Span::(parser.last_span()),
-                    ::proc_macro::Level::Error,
-                    format!("unknown identifier: {}", id.as_str())
-                ))
+                // Err(Diagnostic::spanned(
+                //     parser.last_span(),
+                //     ::proc_macro::Level::Error,
+                //     format!("unknown identifier: {}", id.as_str())
+                // ))
+                panic!()
             }
         },
         _ => Err(parser.unexpected_last())
@@ -485,7 +680,7 @@ impl Parser {
             TokenNode::Group(_, _) => {
                 let span = self.span;
                 let tt = self.bump_and_get();
-                Ok(TokenTree { kind: tt, span: span })
+                Ok(TokenTree { kind: tt, span: span }) // 
             }
             _ => Err(self.span_error("expected an expression"))
         }
@@ -493,7 +688,7 @@ impl Parser {
 }
 
 impl Tokenizer for Parser {
-    // fn token(&self) -> &token::Token { &self.token }
+    fn node(&self) -> &TokenNode { &self.node }
 
     fn bump(&mut self) {
         self.prev_span = self.span;
@@ -562,7 +757,8 @@ impl Tokenizer for Parser {
     }
 
     fn span_error(&self, m: &str) -> Diagnostic {
-        Diagnostic::spanned(self.span.into(), ::proc_macro::Level::Error, m)
+        //Diagnostic::spanned(self.span, ::proc_macro::Level::Error, m)
+        panic!()
     }
 
     fn unexpected(&self) -> Diagnostic {
@@ -570,9 +766,10 @@ impl Tokenizer for Parser {
     }
 
     fn unexpected_last(&mut self) -> Diagnostic {
-        Diagnostic::spanned(self.last_span().into(),
-                            ::proc_macro::Level::Error,
-                            "unexpected token")
+        // Diagnostic::spanned(self.last_span(),
+        //                     ::proc_macro::Level::Error,
+        //                     "unexpected token")
+        panic!()
     }
 }
 

@@ -1,8 +1,7 @@
-#![feature(rustc_private,plugin)]
-#![plugin(rustlex)]
+#![feature(proc_macro)]
 
-#[allow(plugin_as_library)]
 extern crate rustlex;
+use rustlex::rustlex;
 
 use std::io::BufReader;
 
@@ -18,7 +17,7 @@ pub enum Token {
     TokString(String)
 }
 
-rustlex! ComplexLexer {
+rustlex! { ComplexLexer:
     // define some regular expressions that matches
     // float and int constants allowed in C
     // definitions are of the form
@@ -41,16 +40,16 @@ rustlex! ComplexLexer {
     // each rule is of the form
     //    regex => action
     // action can be a block or a single statement
-    . => |_:&mut ComplexLexer<R>| { None }
-    INT => |lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr()[..].parse().unwrap()))
-    HEX => |lexer:&mut ComplexLexer<R>| {
+    . => (|_:&mut ComplexLexer<R>| { None })
+    INT => (|lexer:&mut ComplexLexer<R>| Some(TokInt(lexer.yystr()[..].parse().unwrap())))
+    HEX => (|lexer:&mut ComplexLexer<R>| {
         let s = lexer.yystr();
         let i:u32 = u32::from_str_radix(&s[2 .. s.len()-1], 16).unwrap();
         Some(TokInt(i))
-    }
-    FLTCONST => |lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr()[..].parse().unwrap()))
-    ID => |lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr()))
-    STR => |lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr()))
+    })
+    FLTCONST => (|lexer:&mut ComplexLexer<R>| Some(TokFloat(lexer.yystr()[..].parse().unwrap())))
+    ID => (|lexer:&mut ComplexLexer<R>| Some(TokId(lexer.yystr())))
+    STR => (|lexer:&mut ComplexLexer<R>| Some(TokString(lexer.yystr())))
 }
 
 #[test]
